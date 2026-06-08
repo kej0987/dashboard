@@ -75,6 +75,12 @@ def index(request: Request):
     return resp
 
 
+@app.get("/health")
+def health():
+    """keep-alive 핑 전용 — 세션/상태를 건드리지 않는 초경량 응답."""
+    return {"ok": True}
+
+
 @app.get("/api/status")
 def status(request: Request, response: Response):
     sid = _ensure_sid(request, response)
