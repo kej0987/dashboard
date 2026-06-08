@@ -1,0 +1,26 @@
+# 시크릿 / 인증 정보
+config.py
+token_cache.bin
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# 가상환경
+venv/
+.venv/
+env/
+ENV/
+
+# 에디터 / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 테스트 / 업로드 데이터
+test_survey.xlsx
+uploads/
+*.tmp

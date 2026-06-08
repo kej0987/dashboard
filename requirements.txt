@@ -1,0 +1,9 @@
+msal
+requests
+pygments
+fastapi
+uvicorn
+pandas
+openpyxl
+python-multipart
+anthropic

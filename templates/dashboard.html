@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>엘리스랩 만족도 대시보드</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=20260606" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- 글래스모피즘 아이콘용 그라데이션 정의 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#aeb9ff" />
+        <stop offset="55%" stop-color="#6f78f0" />
+        <stop offset="100%" stop-color="#8b5cf6" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div class="layout">
+    <!-- 사이드바 -->
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="brand-logo-img" src="/static/img/elice-lab.png" alt="elice Lab" />
+        <span class="brand-caption">만족도 대시보드</span>
+      </div>
+      <nav class="nav">
+        <a href="#sec-kpi" class="nav-item active">개요</a>
+        <a href="#sec-category" class="nav-item">카테고리별 평균</a>
+        <a href="#sec-items" class="nav-item">항목별 분석</a>
+        <a href="#sec-compare" class="nav-item">강좌별 항목 비교</a>
+        <a href="#sec-ranking" class="nav-item">강좌별 순위</a>
+        <a href="#sec-keywords" class="nav-item">주관식 키워드</a>
+        <a href="#sec-extra" class="nav-item">소식 · 희망과정</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span id="side-filename">데이터 없음</span>
+      </div>
+    </aside>
+
+    <!-- 메인 -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>훈련비과정 만족도 조사</h1>
+          <p id="subtitle">Excel 파일을 업로드하여 대시보드를 확인하세요.</p>
+        </div>
+        <div class="topbar-actions">
+          <label class="upload-btn">
+            <input type="file" id="file-input" accept=".xlsx,.xls" hidden />
+            <svg class="xls-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="3" fill="#fff" opacity="0.18" />
+              <rect x="3" y="3" width="18" height="18" rx="3" stroke="#fff" stroke-width="1.6" fill="none" />
+              <path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="#fff" stroke-width="1.3" opacity="0.85" />
+            </svg>
+            <span>Excel 업로드</span>
+          </label>
+        </div>
+      </header>
+
+      <!-- 업로드 안내 (데이터 없을 때) -->
+      <section id="empty-state" class="empty-state">
+        <div class="empty-card">
+          <div class="empty-icon">📊</div>
+          <h2>데이터가 없습니다</h2>
+          <p>설문 결과 Excel 파일을 업로드하면 자동으로 분석 대시보드가 생성됩니다.</p>
+          <label class="upload-btn primary">
+            <input type="file" id="file-input-2" accept=".xlsx,.xls" hidden />
+            <svg class="xls-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="3" fill="#fff" opacity="0.18" />
+              <rect x="3" y="3" width="18" height="18" rx="3" stroke="#fff" stroke-width="1.6" fill="none" />
+              <path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="#fff" stroke-width="1.3" opacity="0.85" />
+            </svg>
+            <span>Excel 파일 선택</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- 대시보드 본문 -->
+      <div id="dashboard" class="dashboard hidden">
+
+        <!-- 강좌 필터 -->
+        <section class="section filter-section">
+          <label class="filter-bar-label" for="course-filter">강좌 선택</label>
+          <select id="course-filter" class="filter-select"></select>
+        </section>
+
+        <!-- KPI -->
+        <section id="sec-kpi" class="section">
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-icon ico-purple">
+                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#fff" stroke-width="2"/><path d="M8.3 14c.8 1.3 2.1 2.1 3.7 2.1s2.9-.8 3.7-2.1" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="10" r="1.2" fill="#fff"/><circle cx="15" cy="10" r="1.2" fill="#fff"/></svg>
+              </div>
+              <div class="kpi-body">
+                <span class="kpi-label">전체 평균 만족도</span>
+                <span class="kpi-value" id="kpi-overall">-</span>
+                <span class="kpi-sub">5점 만점</span>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon ico-blue">
+                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.8" fill="#fff"/><path d="M5 20c0-3.9 3.1-6.2 7-6.2s7 2.3 7 6.2z" fill="#fff"/></svg>
+              </div>
+              <div class="kpi-body">
+                <span class="kpi-label">강사 역량</span>
+                <span class="kpi-value" id="kpi-instructor">-</span>
+                <span class="kpi-sub">5점 만점</span>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon ico-orange">
+                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="4.5" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg>
+              </div>
+              <div class="kpi-body">
+                <span class="kpi-label">교육 효과</span>
+                <span class="kpi-value" id="kpi-effect">-</span>
+                <span class="kpi-sub">5점 만점</span>
+              </div>
+            </div>
+            <div class="kpi-card accent">
+              <div class="kpi-icon ico-white">
+                <svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.4" fill="#fff"/><path d="M3 19c0-3.3 2.7-5.2 6-5.2s6 1.9 6 5.2z" fill="#fff"/><circle cx="17" cy="8.6" r="2.7" fill="#fff" opacity=".7"/><path d="M16.2 14c2.7.1 4.8 1.8 4.8 4.5" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/></svg>
+              </div>
+              <div class="kpi-body">
+                <span class="kpi-label">응답 현황</span>
+                <span class="kpi-value"><span id="kpi-respondents">-</span><small>명</small></span>
+                <span class="kpi-sub" id="kpi-courses-sub">- 개 강좌</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 카테고리별 평균 -->
+        <section id="sec-category" class="section">
+          <h2 class="section-title" data-icon="category">카테고리별 평균</h2>
+          <div class="category-grid" id="category-grid"></div>
+        </section>
+
+        <!-- 항목별 분석 -->
+        <section id="sec-items" class="section">
+          <h2 class="section-title" data-icon="items">항목별 분석</h2>
+          <div class="chart-row">
+            <div class="card chart-card">
+              <h3>항목별 평균 점수</h3>
+              <div class="chart-box"><canvas id="bar-chart"></canvas></div>
+            </div>
+            <div class="card chart-card">
+              <h3>카테고리별 균형 <span class="card-tag">레이더</span></h3>
+              <div class="chart-box"><canvas id="radar-chart"></canvas></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>항목별 점수 상세 <span class="card-tag">점수순 정렬</span></h3>
+            <div class="highlight-row" id="highlight-row"></div>
+            <div class="item-list" id="item-list"></div>
+          </div>
+        </section>
+
+        <!-- 강좌별 항목 비교 -->
+        <section id="sec-compare" class="section">
+          <h2 class="section-title" data-icon="compare">강좌별 항목 비교</h2>
+          <div class="card">
+            <h3>강좌별 항목 점수 비교 <span class="card-tag">전체 강좌</span></h3>
+            <p class="card-hint">범례의 강좌명을 클릭하면 해당 강좌를 켜고 끌 수 있습니다.</p>
+            <div class="chart-box wide"><canvas id="compare-chart"></canvas></div>
+          </div>
+        </section>
+
+        <!-- 강좌별 순위 -->
+        <section id="sec-ranking" class="section">
+          <h2 class="section-title" data-icon="ranking">강좌별 종합 만족도 순위</h2>
+          <div class="card">
+            <div class="ranking-list" id="ranking-list"></div>
+          </div>
+        </section>
+
+        <!-- 주관식 키워드 -->
+        <section id="sec-keywords" class="section">
+          <h2 class="section-title" data-icon="keywords">주관식 키워드 분석 <span class="card-tag" id="kw-engine"></span></h2>
+          <div class="card">
+            <div class="ai-summary" id="ai-summary"></div>
+            <p class="card-hint">자주 언급된 단어를 빈도 크기로 표시합니다 (한국어 불용어 제거 · 복합어 우선).</p>
+            <div class="kw-cols" id="kw-cols">
+              <div class="kw-col pos">
+                <h3>👍 긍정 키워드 <span class="kw-sub">도움됨 · 좋았음</span></h3>
+                <div class="tagcloud pos" id="kw-positive"></div>
+              </div>
+              <div class="kw-col neg">
+                <h3>🔧 개선 키워드 <span class="kw-sub">아쉬움 · 요청</span></h3>
+                <div class="tagcloud neg" id="kw-negative"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 소식 · 희망과정 -->
+        <section id="sec-extra" class="section">
+          <h2 class="section-title" data-icon="extra">교육 소식 수신 · 희망 훈련 과정</h2>
+          <div class="chart-row" id="extra-row">
+            <div class="card chart-card" id="news-card">
+              <h3>교육 소식 수신 동의</h3>
+              <div class="chart-box small"><canvas id="news-chart"></canvas></div>
+              <div class="news-stats" id="news-stats"></div>
+            </div>
+            <div class="card chart-card" id="wished-card">
+              <h3>희망 훈련 과정 TOP</h3>
+              <div class="ranking-list" id="wished-list"></div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 업로드 로딩 오버레이 -->
+  <div id="overlay" class="overlay hidden">
+    <div class="spinner"></div>
+    <p id="overlay-text">데이터를 분석하는 중...</p>
+  </div>
+
+  <script src="/static/js/dashboard.js?v=20260605c"></script>
+</body>
+</html>
