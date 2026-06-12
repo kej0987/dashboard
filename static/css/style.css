@@ -99,6 +99,14 @@ body {
 .topbar-title p { font-size: 13px; color: var(--text-mut); margin-top: 3px; }
 .topbar-actions { display: flex; align-items: center; gap: 14px; }
 
+/* 자동 갱신 배지 */
+.auto-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(34, 197, 94, 0.12); color: #16a34a;
+  padding: 8px 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 700;
+}
+
 /* 업로드 버튼 — 보라색 solid */
 .upload-btn {
   display: inline-flex; align-items: center; gap: 8px;

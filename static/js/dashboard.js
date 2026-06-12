@@ -523,7 +523,9 @@ function init() {
     if (ICONS[name]) h.insertAdjacentHTML("afterbegin", ICONS[name]);
   });
 
-  $("#file-input").addEventListener("change", (e) => uploadFile(e.target.files[0]));
+  // 업로드 UI 제거(자동 모드). 파일 입력이 있으면만 바인딩(하위호환).
+  const fi = $("#file-input");
+  if (fi) fi.addEventListener("change", (e) => uploadFile(e.target.files[0]));
   const fi2 = $("#file-input-2");
   if (fi2) fi2.addEventListener("change", (e) => uploadFile(e.target.files[0]));
 
