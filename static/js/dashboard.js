@@ -174,6 +174,7 @@ function render(d) {
   renderKeywords(d.keywords, d.ai_analysis);
   renderNewsletter(d.newsletter);
   renderWished(d.wished_courses);
+  renderWishedOther(d.wished_other);
 }
 
 function renderKpi(k) {
@@ -506,6 +507,32 @@ function renderWished(rows) {
   });
 
   applyCollapse(list, 3);
+}
+
+// 희망 과정 자유입력(기타) 의견 목록 — 자유 텍스트라 textContent 로 안전하게 렌더
+function renderWishedOther(rows) {
+  const box = $("#wished-other-list");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!rows || !rows.length) {
+    box.innerHTML = '<p class="card-hint">직접입력 의견이 없습니다.</p>';
+    return;
+  }
+  rows.forEach((r) => {
+    const item = document.createElement("div");
+    item.className = "other-item";
+    const txt = document.createElement("span");
+    txt.className = "other-text";
+    txt.textContent = r.text;
+    item.appendChild(txt);
+    if (r.count > 1) {
+      const cnt = document.createElement("span");
+      cnt.className = "other-count";
+      cnt.textContent = "×" + r.count;
+      item.appendChild(cnt);
+    }
+    box.appendChild(item);
+  });
 }
 
 function drawChart(id, config) {

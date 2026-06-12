@@ -265,6 +265,42 @@ def analyze_keywords(responses):
     }
 
 
+# 희망 훈련 과정: 객관식 옵션 화이트리스트(차트용). 그 외 값은 "기타 직접입력"으로 분리.
+# 폼 옵션이 바뀌면 이 목록만 갱신하면 된다.
+WISHED_OPTIONS = [
+    "인공지능(AI) 실무 활용",
+    "업무자동화(RPA 등)",
+    "데이터 분석 & 시각화",
+    "빅데이터 활용",
+    "프로젝트 관리",
+    "웹 개발 (Frontend/Backend)",
+    "프로젝트 관리 (PM/Agile)",
+    "클라우드 기반 개발 환경",
+]
+
+
+def wished_breakdown(series, top=10):
+    """희망 과정 응답을 객관식 옵션(options)과 자유입력(other)으로 분리한다.
+    - options: 화이트리스트에 해당 → 막대 차트용 (공백 차이 무시 매칭)
+    - other:   그 외 자유입력 → 별도 목록 (의미없는 입력은 제외)"""
+    opt_by_norm = {_norm(o): o for o in WISHED_OPTIONS}
+    options, other = Counter(), Counter()
+    for text in series.dropna().astype(str):
+        for p in _explode_multi(text):
+            p = p.strip()
+            if not p or p in {"없음", "없다", "-"}:
+                continue
+            canon = opt_by_norm.get(_norm(p))
+            if canon:
+                options[canon] += 1
+            elif len(p) >= 2 and re.search(r"[가-힣A-Za-z0-9]", p):  # 의미없는 입력 제외
+                other[p] += 1
+    return {
+        "options": [{"course": k, "count": v} for k, v in options.most_common(top)],
+        "other": [{"text": k, "count": v} for k, v in other.most_common()],
+    }
+
+
 def _explode_multi(text):
     """다중선택 값을 항목 리스트로 분해한다.
     두 포맷을 모두 지원:
@@ -378,7 +414,7 @@ def analyze(df, course="전체", filename=None):
         if subj_col else []
     )
     keywords = analyze_keywords(subj_responses)
-    wished = split_multi(sub[wish_col]) if wish_col else []
+    wished = wished_breakdown(sub[wish_col]) if wish_col else {"options": [], "other": []}
     newsletter = newsletter_breakdown(sub[news_col]) if news_col else {"네": 0, "아니오": 0}
 
     # 강좌별 항목 비교 (전체 기준, 카테고리 순 정렬)
@@ -411,7 +447,8 @@ def analyze(df, course="전체", filename=None):
         "course_ranking": course_ranking(df, rating_cols),
         "keywords": keywords,
         "newsletter": newsletter,
-        "wished_courses": wished,
+        "wished_courses": wished["options"],   # 막대 차트 = 객관식 옵션만
+        "wished_other": wished["other"],       # 기타 직접입력 의견 목록
         "item_order": item_order,
         "course_scores": course_scores,
     }

@@ -99,6 +99,17 @@ body {
 .topbar-title p { font-size: 13px; color: var(--text-mut); margin-top: 3px; }
 .topbar-actions { display: flex; align-items: center; gap: 14px; }
 
+/* 희망 과정 기타 직접입력 의견 */
+#wished-other-card { margin-top: 18px; }
+.other-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.other-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f3f2fb; color: #443e6b;
+  padding: 8px 13px; border-radius: 10px;
+  font-size: 13.5px; line-height: 1.4;
+}
+.other-count { font-weight: 700; color: var(--primary); font-size: 12px; }
+
 /* 자동 갱신 배지 */
 .auto-badge {
   display: inline-flex; align-items: center; gap: 6px;
