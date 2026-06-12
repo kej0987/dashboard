@@ -12,6 +12,7 @@ analyzer.py
 - 매핑에 걸리지 않는 컬럼은 질문 전문을 줄여서 이름으로 쓰고 카테고리는 추정.
 """
 
+import json
 import re
 from collections import Counter
 
@@ -264,12 +265,27 @@ def analyze_keywords(responses):
     }
 
 
+def _explode_multi(text):
+    """다중선택 값을 항목 리스트로 분해한다.
+    두 포맷을 모두 지원:
+      - 세미콜론/줄바꿈 구분 (Excel 가져오기 historical: "A;B;")
+      - JSON 배열 문자열 (Power Automate Forms 다중선택: '["A","B"]')
+    콤마로는 자르지 않는다("데이터 분석, 시각화" 같은 항목명 보존)."""
+    t = (text or "").strip()
+    if t.startswith("[") and t.endswith("]"):
+        try:
+            arr = json.loads(t)
+            if isinstance(arr, list):
+                return [str(x) for x in arr]
+        except (ValueError, TypeError):
+            pass
+    return re.split(r"[;\n]", t)
+
+
 def split_multi(series, top=10):
-    # 세미콜론(또는 줄바꿈)으로만 분리한다. 콤마로는 자르지 않아
-    # "데이터 분석, 시각화" 처럼 항목명에 콤마가 있어도 원본 그대로 유지한다.
     counter = Counter()
     for text in series.dropna().astype(str):
-        for p in re.split(r"[;\n]", text):
+        for p in _explode_multi(text):
             p = p.strip()
             if not p or p in {"없음", "없다", "-"}:
                 continue
