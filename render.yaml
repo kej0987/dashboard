@@ -9,5 +9,25 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
-      - key: ANTHROPIC_API_KEY      # Render 대시보드에서 값 입력(sync:false)
+      # --- 식별자(비밀 아님): config.py 가 배포본엔 없으므로 여기서 주입 ---
+      - key: TENANT_ID
+        value: "5bb6f1f4-0b48-4496-9baf-f9fb7da5d352"
+      - key: CLIENT_ID
+        value: "aa607c48-e034-47b7-9be0-345924b9a977"
+      - key: SHAREPOINT_SITE
+        value: "develice.sharepoint.com"
+      - key: SHAREPOINT_SITE_NAME
+        value: "khp-elicelab"
+      - key: SHAREPOINT_LIST_ID
+        value: "e61f6de3-ae4d-41f2-8e4d-efa473f914f6"
+      - key: SHAREPOINT_LIST_NAME
+        value: "[엘리스랩 부산센터] 2026년도 훈련비과정 만족도 조사1"
+      # --- 비밀값: Render 대시보드 Environment 에서 직접 입력(sync:false → 깃 미저장) ---
+      - key: GITHUB_TOKEN           # Gist 읽기/쓰기 PAT (gist scope). 토큰캐시+데이터 저장
+        sync: false
+      - key: GITHUB_GIST_ID         # 데이터+토큰캐시 보관 Gist ID (데이터 위치라 비공개 취급)
+        sync: false
+      - key: ANTHROPIC_API_KEY      # (선택) 주관식 키워드 AI 분석. 없으면 규칙기반 폴백
+        sync: false
+      - key: WEBHOOK_SECRET         # (선택) webhook 경로 미사용 시 불필요
         sync: false

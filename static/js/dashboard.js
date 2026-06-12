@@ -125,6 +125,8 @@ async function uploadFile(file) {
 }
 
 let currentCourse = "전체";
+let lastVersion = -1;          // 서버 데이터 버전(자동 새로고침 변경 감지용)
+const REFRESH_MS = 20000;      // 20초마다 새 응답 여부 확인
 
 function populateCourses(courses, selected) {
   currentCourse = selected || "전체";
@@ -144,19 +146,21 @@ function populateCourses(courses, selected) {
 }
 
 /* ---------- 대시보드 로드 ---------- */
-async function loadDashboard(course) {
-  showOverlay("대시보드를 갱신하는 중...");
+// silent=true 이면 오버레이 없이 조용히 갱신한다(자동 새로고침용).
+async function loadDashboard(course, silent) {
+  if (!silent) showOverlay("대시보드를 갱신하는 중...");
   try {
     const res = await fetch(`/api/dashboard?course=${encodeURIComponent(course)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "데이터 로드 실패");
+    if (typeof data.version === "number") lastVersion = data.version;
     $("#empty-state").classList.add("hidden");
     $("#dashboard").classList.remove("hidden");
     render(data);
   } catch (e) {
-    toast(e.message, true);
+    if (!silent) toast(e.message, true);
   } finally {
-    hideOverlay();
+    if (!silent) hideOverlay();
   }
 }
 
@@ -531,18 +535,41 @@ function init() {
     });
   });
 
-  // 이미 업로드된 데이터가 있으면 바로 로드
+  // 이미 수집된 데이터가 있으면 바로 로드
   fetch("/api/status")
     .then((r) => r.json())
     .then((s) => {
       if (s.has_data) {
-        populateCourses(s.courses, "전체");
-        $("#side-filename").textContent = s.filename;
-        $("#subtitle").textContent = `${s.filename} · 응답 ${s.rows}건`;
-        loadDashboard("전체");
+        applyStatus(s);
+        loadDashboard(currentCourse);
       }
     })
     .catch(() => {});
+
+  // 자동 새로고침: 주기적으로 status 를 확인해 version 이 바뀌면 조용히 다시 로드
+  setInterval(checkForUpdates, REFRESH_MS);
+}
+
+// status 응답으로 강좌 목록/부제목을 갱신한다.
+function applyStatus(s) {
+  const prev = currentCourse;
+  populateCourses(s.courses, s.courses.includes(prev) ? prev : "전체");
+  $("#side-filename").textContent = s.filename;
+  $("#subtitle").textContent = `${s.filename} · 응답 ${s.rows}건`;
+}
+
+// 새 응답 감지 시 화면을 조용히(오버레이 없이) 갱신한다.
+async function checkForUpdates() {
+  try {
+    const s = await (await fetch("/api/status")).json();
+    if (!s.has_data) return;
+    if (s.version === lastVersion) return;   // 변경 없음
+    applyStatus(s);
+    await loadDashboard(currentCourse, true); // silent
+    toast(`새 응답 반영됨 (총 ${s.rows}건)`);
+  } catch (e) {
+    /* 네트워크 일시 오류는 무시 */
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);
