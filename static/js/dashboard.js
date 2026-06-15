@@ -124,33 +124,83 @@ async function uploadFile(file) {
   }
 }
 
-let currentCourse = "전체";
+let selectedCourses = [];      // 선택된 강좌들(빈 배열 = 전체)
+let allCourses = [];
 let lastVersion = -1;          // 서버 데이터 버전(자동 새로고침 변경 감지용)
 const REFRESH_MS = 20000;      // 20초마다 새 응답 여부 확인
 
-function populateCourses(courses, selected) {
-  currentCourse = selected || "전체";
-  const sel = $("#course-filter");
-  sel.innerHTML = "";
-  ["전체", ...(courses || [])].forEach((c) => {
-    const opt = document.createElement("option");
-    opt.value = c;
-    opt.textContent = c;
-    sel.appendChild(opt);
-  });
-  sel.value = currentCourse;
-  sel.onchange = (e) => {
-    currentCourse = e.target.value;
-    loadDashboard(currentCourse);
-  };
+function shorten(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+// 체크박스 목록을 (재)구성한다. keep=true 면 기존 선택을 유지한다.
+function populateCourses(courses, keep) {
+  allCourses = courses || [];
+  if (!keep) selectedCourses = [];
+  selectedCourses = selectedCourses.filter((c) => allCourses.includes(c));
+  const panel = $("#course-ms-panel");
+  if (!panel) return;
+  panel.innerHTML = "";
+  panel.appendChild(makeMsOption("전체", selectedCourses.length === 0, true));
+  allCourses.forEach((c) => panel.appendChild(makeMsOption(c, selectedCourses.includes(c), false)));
+  updateMsLabel();
+}
+
+function makeMsOption(label, checked, isAll) {
+  const row = document.createElement("label");
+  row.className = "ms-option";
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.checked = checked;
+  cb.value = label;
+  cb.dataset.all = isAll ? "1" : "0";
+  cb.addEventListener("change", () => onMsChange(isAll));
+  const span = document.createElement("span");
+  span.textContent = label;
+  row.appendChild(cb);
+  row.appendChild(span);
+  return row;
+}
+
+function onMsChange(isAll) {
+  const panel = $("#course-ms-panel");
+  const allCb = panel.querySelector('input[data-all="1"]');
+  if (isAll) {
+    // "전체" 선택 → 개별 모두 해제, 전체는 항상 체크 유지
+    panel.querySelectorAll('input[data-all="0"]').forEach((x) => (x.checked = false));
+    if (allCb) allCb.checked = true;
+    selectedCourses = [];
+  } else {
+    selectedCourses = Array.from(panel.querySelectorAll('input[data-all="0"]:checked')).map((x) => x.value);
+    if (allCb) allCb.checked = selectedCourses.length === 0;
+  }
+  updateMsLabel();
+  loadDashboard(selectedCourses);
+}
+
+function updateMsLabel() {
+  const el = $("#course-ms-label");
+  if (!el) return;
+  if (!selectedCourses.length) el.textContent = "전체";
+  else if (selectedCourses.length === 1) el.textContent = shorten(selectedCourses[0], 26);
+  else el.textContent = `${selectedCourses.length}개 강좌 선택`;
+}
+
+function initMultiselect() {
+  const toggle = $("#course-ms-toggle");
+  const panel = $("#course-ms-panel");
+  const wrap = $("#course-ms");
+  if (!toggle || !panel || !wrap) return;
+  toggle.addEventListener("click", (e) => { e.stopPropagation(); panel.classList.toggle("hidden"); });
+  document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) panel.classList.add("hidden"); });
 }
 
 /* ---------- 대시보드 로드 ---------- */
 // silent=true 이면 오버레이 없이 조용히 갱신한다(자동 새로고침용).
-async function loadDashboard(course, silent) {
+async function loadDashboard(courses, silent) {
   if (!silent) showOverlay("대시보드를 갱신하는 중...");
   try {
-    const res = await fetch(`/api/dashboard?course=${encodeURIComponent(course)}`);
+    const list = (courses && courses.length) ? courses : ["전체"];
+    const qs = list.map((c) => `course=${encodeURIComponent(c)}`).join("&");
+    const res = await fetch(`/api/dashboard?${qs}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "데이터 로드 실패");
     if (typeof data.version === "number") lastVersion = data.version;
@@ -169,8 +219,8 @@ function render(d) {
   renderKpi(d.kpi);
   renderCategories(d.categories);
   renderItems(d.items, d.categories);
-  renderCompare(d.item_order, d.course_scores, d.selected_course);
-  renderRanking(d.course_ranking, d.selected_course);
+  renderCompare(d.item_order, d.course_scores, d.selected_courses);
+  renderRanking(d.course_ranking, d.selected_courses);
   renderKeywords(d.keywords, d.ai_analysis);
   renderNewsletter(d.newsletter);
   renderWished(d.wished_courses);
@@ -322,7 +372,7 @@ function renderCompare(itemOrder, courseScores, selected) {
   const courses = Object.keys(courseScores);
   const datasets = courses.map((c, idx) => {
     const color = COMPARE_COLORS[idx % COMPARE_COLORS.length];
-    const isSel = selected && selected !== "전체" && c === selected;
+    const isSel = Array.isArray(selected) && selected.includes(c);
     return {
       label: c.length > 22 ? c.slice(0, 21) + "…" : c,
       data: itemOrder.map((n) => courseScores[c][n] ?? null),
@@ -359,7 +409,7 @@ function renderRanking(rows, selected) {
     const pct = Math.max(0, Math.min(100, (r.score / 5) * 100));
     const row = document.createElement("div");
     row.className = "rank-row" + (idx < 3 ? ` top${idx + 1}` : "");
-    if (r.course === selected) row.style.background = "var(--primary-soft)";
+    if (Array.isArray(selected) && selected.includes(r.course)) row.style.background = "var(--primary-soft)";
     row.innerHTML = `
       <div class="rank-num">${idx + 1}</div>
       <div>
@@ -564,13 +614,15 @@ function init() {
     });
   });
 
+  initMultiselect();
+
   // 이미 수집된 데이터가 있으면 바로 로드
   fetch("/api/status")
     .then((r) => r.json())
     .then((s) => {
       if (s.has_data) {
         applyStatus(s);
-        loadDashboard(currentCourse);
+        loadDashboard(selectedCourses);
       }
     })
     .catch(() => {});
@@ -579,10 +631,9 @@ function init() {
   setInterval(checkForUpdates, REFRESH_MS);
 }
 
-// status 응답으로 강좌 목록/부제목을 갱신한다.
+// status 응답으로 강좌 목록/부제목을 갱신한다(기존 선택 유지).
 function applyStatus(s) {
-  const prev = currentCourse;
-  populateCourses(s.courses, s.courses.includes(prev) ? prev : "전체");
+  populateCourses(s.courses, true);
   $("#side-filename").textContent = s.filename;
   $("#subtitle").textContent = `${s.filename} · 응답 ${s.rows}건`;
 }
@@ -594,7 +645,7 @@ async function checkForUpdates() {
     if (!s.has_data) return;
     if (s.version === lastVersion) return;   // 변경 없음
     applyStatus(s);
-    await loadDashboard(currentCourse, true); // silent
+    await loadDashboard(selectedCourses, true); // silent
     toast(`새 응답 반영됨 (총 ${s.rows}건)`);
   } catch (e) {
     /* 네트워크 일시 오류는 무시 */

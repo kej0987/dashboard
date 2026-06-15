@@ -359,9 +359,13 @@ def course_ranking(df, rating_cols):
 # ---------------------------------------------------------------------------
 # 메인 분석
 # ---------------------------------------------------------------------------
-def analyze(df, course="전체", filename=None):
+def analyze(df, courses=None, filename=None):
+    """courses: 선택된 강좌 목록. None/빈값/"전체" 포함 시 전체.
+    여러 개면 그 강좌들 응답을 합쳐서 평균을 낸다."""
     rating_cols = get_rating_columns(df)
     course_col = get_course_col(df)
+    selected = [str(c).strip() for c in (courses or [])
+                if c and str(c).strip() and str(c).strip() != "전체"]
 
     # 컬럼 -> 메타(이름/카테고리) 1회 계산
     used = set()
@@ -370,9 +374,9 @@ def analyze(df, course="전체", filename=None):
         name, cat = resolve_item(col, used)
         meta[col] = {"name": name, "label": str(col).strip(), "category": cat}
 
-    # 필터 적용
-    if course and course != "전체" and course_col:
-        sub = df[df[course_col].astype(str).str.strip() == course]
+    # 필터 적용 (선택된 강좌들의 합집합)
+    if selected and course_col:
+        sub = df[df[course_col].astype(str).str.strip().isin(selected)]
     else:
         sub = df
 
@@ -433,7 +437,7 @@ def analyze(df, course="전체", filename=None):
 
     return {
         "filename": filename,
-        "selected_course": course,
+        "selected_courses": selected,
         "courses": courses,
         "kpi": {
             "overall": overall,

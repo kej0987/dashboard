@@ -24,7 +24,7 @@ import os
 import threading
 import time
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -198,11 +198,12 @@ def status():
 
 
 @app.get("/api/dashboard")
-def dashboard(course: str = "전체"):
+def dashboard(course: list[str] = Query(default=["전체"])):
+    # course 파라미터를 여러 개 받을 수 있음(?course=A&course=B) → 합산 평균
     _ensure_fresh()
     if STATE["df"] is None:
         raise HTTPException(404, "수집된 데이터가 없습니다.")
-    data = analyzer.analyze(STATE["df"], course=course, filename=STATE["filename"])
+    data = analyzer.analyze(STATE["df"], courses=course, filename=STATE["filename"])
     data["ai_analysis"] = STATE["ai"]
     data["version"] = STATE["version"]
     return data

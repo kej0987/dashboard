@@ -99,6 +99,27 @@ body {
 .topbar-title p { font-size: 13px; color: var(--text-mut); margin-top: 3px; }
 .topbar-actions { display: flex; align-items: center; gap: 14px; }
 
+/* 강좌 다중 선택 드롭다운 */
+.multiselect { position: relative; display: inline-block; min-width: 280px; max-width: 480px; }
+.ms-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px;
+  padding: 11px 16px; font-size: 14px; font-weight: 600; color: #1f2330; cursor: pointer;
+}
+.ms-toggle:hover { border-color: var(--primary); }
+.ms-caret { color: #9ca3af; font-size: 12px; }
+.ms-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 6px; max-height: 320px; overflow-y: auto;
+}
+.ms-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 13.5px; color: #2b2f3a;
+}
+.ms-option:hover { background: #f3f2fb; }
+.ms-option input { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
+
 /* 희망 과정 기타 직접입력 의견 */
 #wished-other-card { margin-top: 18px; }
 .other-list { display: flex; flex-wrap: wrap; gap: 8px; }
