@@ -7,6 +7,9 @@ store.load_payload / save_payload 를 메모리 스텁으로 교체해
 실행: venv/Scripts/python.exe test_webhook_flow.py
 """
 import os
+import sys
+
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows 콘솔(cp949)에서 한글/이모지 깨짐·크래시 방지
 
 os.environ["WEBHOOK_SECRET"] = "local-test-secret"
 

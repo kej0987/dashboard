@@ -396,30 +396,39 @@ def course_ranking(df, rating_cols):
 # ---------------------------------------------------------------------------
 # 메인 분석
 # ---------------------------------------------------------------------------
-def overview_summary(kpi, categories, items, course_ranking):
-    """숫자 기반 자동 요약 문장(규칙기반, API 불필요) — ai_keywords.analyze_overview 가
-    ANTHROPIC_API_KEY 미설정으로 None 을 반환할 때의 폴백."""
+def overview_summary(kpi, categories, items, course_ranking, keywords=None):
+    """숫자+키워드 기반 자동 요약(규칙기반, API 불필요) — ai_keywords.analyze_overview 가
+    ANTHROPIC_API_KEY 미설정으로 None 을 반환할 때의 폴백. "당연한 소리"가 아니라
+    최고/최저 항목·부정 키워드를 인용해 잘하는 것/문제/할 일 3줄로 구성한다."""
     if not items:
         return ""
-    parts = [f"전체 평균 만족도는 {kpi['overall']:.2f}점(5점 만점)이며, 응답자는 {kpi['respondents']}명입니다."]
-    if categories:
-        best_cat = max(categories, key=lambda c: c["score"])
-        worst_cat = min(categories, key=lambda c: c["score"])
-        if best_cat["name"] != worst_cat["name"]:
-            parts.append(
-                f"'{best_cat['name']}' 영역이 {best_cat['score']:.2f}점으로 가장 높게 평가되었고, "
-                f"'{worst_cat['name']}' 영역은 {worst_cat['score']:.2f}점으로 상대적으로 낮았습니다."
-            )
     best_item = max(items, key=lambda i: i["score"])
     worst_item = min(items, key=lambda i: i["score"])
-    parts.append(
-        f"세부 항목 중에서는 '{best_item['name']}'({best_item['score']:.2f}점)이 가장 높은 평가를, "
-        f"'{worst_item['name']}'({worst_item['score']:.2f}점)이 가장 낮은 평가를 받았습니다."
-    )
-    if course_ranking:
-        top = course_ranking[0]
-        parts.append(f"강좌별로는 '{top['course']}'가 {top['score']:.2f}점으로 가장 높은 만족도를 보였습니다.")
-    return " ".join(parts)
+    neg_words = [k["word"] for k in (keywords or {}).get("negative", [])[:3]]
+    pos_words = [k["word"] for k in (keywords or {}).get("positive", [])[:2]]
+
+    good = f"👍 '{best_item['name']}'이 {best_item['score']:.2f}점으로 가장 높게 평가되었습니다"
+    if pos_words:
+        good += f" ('{', '.join(pos_words)}' 언급 다수)."
+    else:
+        good += "."
+
+    bad = f"⚠️ '{worst_item['name']}'이 {worst_item['score']:.2f}점으로 가장 낮아 개선이 시급합니다"
+    if neg_words:
+        bad += f" (주관식에서 '{', '.join(neg_words)}' 관련 언급이 반복됨)."
+    else:
+        bad += "."
+
+    if course_ranking and len(course_ranking) > 1:
+        low_course = min(course_ranking, key=lambda c: c["score"])
+        action = (
+            f"✅ 다음 기수에서는 '{worst_item['name']}' 항목을 우선 점검하고, "
+            f"특히 '{low_course['course']}'({low_course['score']:.2f}점)의 운영 방식을 함께 검토해 보세요."
+        )
+    else:
+        action = f"✅ 다음 기수에서는 '{worst_item['name']}' 항목을 우선 점검해 보세요."
+
+    return "\n".join([good, bad, action])
 
 
 def analyze(df, courses=None, filename=None, survey="training"):

@@ -148,8 +148,26 @@ def analyze_subjective(responses):
     }
 
 
+OVERVIEW_INSTRUCTIONS = (
+    "다음은 교육 만족도 조사 결과 통계와 주관식 키워드입니다(JSON). "
+    "담당자가 다음 기수 운영에 바로 실행할 수 있는 분석을 아래 형식으로만 작성하세요.\n\n"
+    "👍 잘하고 있는 것: (유지해야 할 부분. 점수가 가장 높은 항목/카테고리나 positive_keywords 를 "
+    "구체적으로 인용)\n"
+    "⚠️ 문제가 되는 것: (가장 시급한 문제 1가지. 점수가 낮은 항목이나 negative_keywords 를 "
+    "구체적으로 인용하고, 왜 문제인지 한 마디 덧붙임)\n"
+    "✅ 다음에 할 일: (위 문제를 해결하기 위한 구체적 액션 1~2가지. '검토가 필요합니다' 같은 "
+    "말로 끝내지 말고 실제로 뭘 바꾸라는 건지 제안)\n\n"
+    "절대 규칙:\n"
+    "- '전반적으로 만족도가 높다', '균형 잡힌 평가를 받았다', '전반적으로 우수하다' 같은 "
+    "누가 봐도 당연하고 두루뭉술한 문장은 절대 쓰지 마세요.\n"
+    "- 모든 문장에 데이터에 실제로 있는 항목명·강좌명·키워드를 최소 1개 이상 반드시 인용하세요.\n"
+    "- 각 줄은 1문장으로 간결하게, 존댓말로 작성하세요. 위 3줄 형식(👍/⚠️/✅) 그대로, "
+    "제목이나 다른 설명을 덧붙이지 마세요."
+)
+
+
 def analyze_overview(stats):
-    """KPI/카테고리/항목/강좌순위 숫자를 바탕으로 종합 분석 요약(3~4문장)을 생성한다.
+    """KPI/카테고리/항목/강좌순위/주관식 키워드를 바탕으로 실행 가능한 종합 분석을 생성한다.
     키가 없거나 실패하면 None 을 반환 → analyzer.overview_summary 규칙기반 문장으로 폴백."""
     key = (_cfg("ANTHROPIC_API_KEY", "") or "").strip()
     if not key:
@@ -161,11 +179,7 @@ def analyze_overview(stats):
         return None  # 키워드 분석 쪽에서 이미 안내하므로 여기선 조용히 폴백
 
     model = _cfg("CLAUDE_MODEL", "claude-sonnet-4-20250514")
-    prompt = (
-        "다음은 교육 만족도 조사 결과 통계입니다(JSON). 담당자가 한눈에 파악할 수 있도록 "
-        "핵심 특징과 시사점을 3~4문장으로 종합 요약해 주세요. 숫자를 단순 나열하지 말고 "
-        "의미 있는 해석 위주로, 존댓말로 작성하세요.\n\n" + json.dumps(stats, ensure_ascii=False)
-    )
+    prompt = OVERVIEW_INSTRUCTIONS + "\n\n" + json.dumps(stats, ensure_ascii=False)
     try:
         client = _client(anthropic, key)
         resp = client.messages.create(

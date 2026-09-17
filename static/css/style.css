@@ -375,7 +375,7 @@ body {
 .ai-summary p { font-size: 14px; line-height: 1.65; color: var(--text); margin: 0; }
 
 /* 종합 분석 요약 카드 (KPI 바로 아래) */
-.overview-text { font-size: 15px; line-height: 1.75; color: var(--text); margin-bottom: 8px; }
+.overview-text { font-size: 15px; line-height: 1.9; color: var(--text); margin-bottom: 8px; white-space: pre-line; }
 
 /* 주관식 원본 응답 (강좌 필터 시) */
 .raw-response-list { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; }

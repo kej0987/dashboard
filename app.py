@@ -120,12 +120,15 @@ def _build_overview(df, filename, survey):
         "categories": full["categories"],
         "items": [{"name": i["name"], "score": i["score"]} for i in full["items"]],
         "course_ranking": full["course_ranking"][:10],
+        # 주관식에서 실제로 언급된 단어를 근거로 써야 "당연한 소리"가 아니라 구체적 제안이 나온다.
+        "positive_keywords": [k["word"] for k in full["keywords"]["positive"][:8]],
+        "negative_keywords": [k["word"] for k in full["keywords"]["negative"][:8]],
     }
     ai_result = ai_keywords.analyze_overview(stats)
     if ai_result and ai_result.get("summary"):
         return {"summary": ai_result["summary"], "engine": "ai"}
     summary = analyzer.overview_summary(
-        full["kpi"], full["categories"], full["items"], full["course_ranking"]
+        full["kpi"], full["categories"], full["items"], full["course_ranking"], full["keywords"]
     )
     return {"summary": summary, "engine": "rule"} if summary else None
 
