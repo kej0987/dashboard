@@ -111,6 +111,13 @@ def main():
     assert d["overview"]["summary"], d["overview"]
     print(f"[6-1] overview(rule) OK: {d['overview']['summary'][:40]}...")
 
+    # 6-2) 강좌 1개만 선택하면 그 강좌 기준 종합 분석으로 바뀐다(지연계산 + 캐시)
+    assert d2["overview"] and d2["overview"]["summary"], d2.get("overview")
+    assert d2["overview"]["summary"] != d["overview"]["summary"], "강좌별 요약이 전체 요약과 동일함"
+    d2_again = client.get("/api/dashboard?course=데이터 분석").json()
+    assert d2_again["overview"]["summary"] == d2["overview"]["summary"], "캐시 안 되고 재계산됨"
+    print(f"[6-2] course overview OK (캐시 확인): {d2['overview']['summary'][:40]}...")
+
     # 7) 영속 저장 확인(스텁 메모리)
     assert _MEM["training"] and _MEM["training"]["rows"] == 2, _MEM["training"]
     rids = {r[appmod.RID_KEY] for r in _MEM["training"]["records"]}

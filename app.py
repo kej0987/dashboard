@@ -54,6 +54,7 @@ def _new_state():
         "df": None,         # 분석용 DataFrame (캐시)
         "ai": None,         # 주관식 키워드 분석 결과 (캐시)
         "overview": None,   # 종합 분석 요약(전체 데이터 기준, 캐시)
+        "course_overviews": {},  # 강좌 1개 선택 시의 종합 분석 요약(강좌명 -> 캐시, 지연계산)
         "filename": None,
         "version": 0,       # 데이터가 실제로 바뀔 때만 +1 (프론트 폴링이 변경 감지)
         "sig": None,        # 현재 데이터의 내용 서명(변경 감지용)
@@ -103,18 +104,20 @@ def _recompute_locked(survey):
         st["df"] = None
         st["ai"] = None
         st["overview"] = None
+        st["course_overviews"] = {}
     else:
         df = _build_df(records)
         st["df"] = df
         st["ai"] = ai_keywords.analyze_subjective(analyzer.get_subjective_responses(df))
         st["overview"] = _build_overview(df, st["filename"], survey)
+        st["course_overviews"] = {}  # 강좌별 종합 분석 캐시 무효화(데이터 바뀜) — 다시 볼 때 재계산
     st["version"] += 1
     st["updated_at"] = time.time()
 
 
-def _build_overview(df, filename, survey):
-    """전체 데이터 기준 종합 분석 요약. Claude API 있으면 AI 요약, 없으면 규칙기반 자동 요약."""
-    full = analyzer.analyze(df, courses=["전체"], filename=filename, survey=survey)
+def _overview_from_full(full):
+    """analyzer.analyze() 결과 하나(전체든 강좌 1개든)를 종합 분석 요약으로 변환.
+    Claude API 있으면 AI 요약, 없으면 규칙기반 자동 요약."""
     stats = {
         "kpi": full["kpi"],
         "categories": full["categories"],
@@ -131,6 +134,28 @@ def _build_overview(df, filename, survey):
         full["kpi"], full["categories"], full["items"], full["course_ranking"], full["keywords"]
     )
     return {"summary": summary, "engine": "rule"} if summary else None
+
+
+def _build_overview(df, filename, survey):
+    """전체 데이터 기준 종합 분석 요약(데이터가 바뀔 때만 재계산, STATE 에 캐시)."""
+    full = analyzer.analyze(df, courses=["전체"], filename=filename, survey=survey)
+    return _overview_from_full(full)
+
+
+def _get_course_overview(survey, course_name):
+    """강좌 1개 기준 종합 분석 요약 — 처음 조회할 때만 계산하고 캐시한다(강좌 20개를
+    미리 다 계산하면 Claude 호출이 너무 많아지므로, 실제로 그 강좌를 볼 때만 계산)."""
+    st = STATE[survey]
+    if course_name in st["course_overviews"]:
+        return st["course_overviews"][course_name]
+    if st["df"] is None:
+        return None
+    full = analyzer.analyze(st["df"], courses=[course_name], filename=st["filename"], survey=survey)
+    if full["kpi"]["respondents"] == 0:
+        return None
+    overview = _overview_from_full(full)
+    st["course_overviews"][course_name] = overview
+    return overview
 
 
 def _persist_locked(survey):
@@ -253,7 +278,11 @@ def dashboard(survey: str = Query("training"), course: list[str] = Query(default
         raise HTTPException(404, "수집된 데이터가 없습니다.")
     data = analyzer.analyze(st["df"], courses=course, filename=st["filename"], survey=survey)
     data["ai_analysis"] = st["ai"]
-    data["overview"] = st["overview"]
+    selected = data["selected_courses"]
+    if len(selected) == 1:
+        data["overview"] = _get_course_overview(survey, selected[0])
+    else:
+        data["overview"] = st["overview"]
     data["version"] = st["version"]
     return data
 

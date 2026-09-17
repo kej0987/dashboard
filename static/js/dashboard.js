@@ -232,7 +232,7 @@ async function loadDashboard(courses, silent) {
 /* ---------- 렌더링 ---------- */
 function render(d) {
   renderKpi(d.kpi);
-  renderOverview(d.overview);
+  renderOverview(d.overview, d.selected_courses);
   renderCategories(d.categories);
   renderItems(d.items, d.categories);
   renderCompare(d.item_order, d.course_scores, d.selected_courses);
@@ -244,15 +244,22 @@ function render(d) {
   renderWishedOther(d.wished_other);
 }
 
-// 종합 분석 요약 (전체 데이터 기준, ANTHROPIC_API_KEY 있으면 AI 요약 / 없으면 자동 요약 문장)
-function renderOverview(o) {
+// 종합 분석 요약 — 강좌를 1개만 선택하면 그 강좌 기준, 아니면 전체 데이터 기준.
+// (ANTHROPIC_API_KEY 있으면 AI 요약 / 없으면 자동 요약 문장)
+function renderOverview(o, selected) {
   const card = $("#overview-card");
   const tag = $("#overview-tag");
+  const hint = $("#overview-hint");
   if (!card) return;
   if (!o || !o.summary) { card.classList.add("hidden"); return; }
   card.classList.remove("hidden");
   $("#overview-text").textContent = o.summary;
   if (tag) tag.textContent = o.engine === "ai" ? "Claude AI 분석" : "자동 요약";
+  if (hint) {
+    hint.textContent = (Array.isArray(selected) && selected.length === 1)
+      ? `'${selected[0]}' 강좌 기준 요약입니다.`
+      : "전체 데이터 기준 요약입니다. 강좌를 1개만 선택하면 그 강좌 기준으로 바뀝니다.";
+  }
 }
 
 // 강좌를 특정해서 선택했을 때만 주관식 원본 응답을 그대로 보여준다("전체"일 땐 숨김).
@@ -416,23 +423,42 @@ function renderItems(items, categories) {
   applyCollapse(list, 3); // 상위 3개만 노출, 나머지는 더보기
 }
 
+// 강좌를 선택했을 때만 그린다 — 강좌가 많으면(예: 20개) 전체를 다 그려봐야 선이
+// 뒤엉켜 알아볼 수 없으므로, "전체" 상태에서는 차트를 숨기고 안내만 보여준다.
 function renderCompare(itemOrder, courseScores, selected) {
-  if (!itemOrder || !courseScores) return;
-  const courses = Object.keys(courseScores);
-  const datasets = courses.map((c, idx) => {
+  const box = document.querySelector("#sec-compare .chart-box");
+  const empty = $("#compare-empty");
+  const tag = $("#compare-tag");
+  const hint = $("#compare-hint");
+  if (!itemOrder || !courseScores || !box || !empty) return;
+
+  const chosen = (Array.isArray(selected) ? selected : []).filter((c) => c in courseScores);
+  if (!chosen.length) {
+    box.classList.add("hidden");
+    empty.classList.remove("hidden");
+    if (tag) tag.textContent = "강좌 선택 시 표시";
+    if (hint) hint.classList.add("hidden");
+    if (charts["compare-chart"]) { charts["compare-chart"].destroy(); delete charts["compare-chart"]; }
+    return;
+  }
+  box.classList.remove("hidden");
+  empty.classList.add("hidden");
+  if (tag) tag.textContent = `${chosen.length}개 강좌 선택`;
+  if (hint) hint.classList.remove("hidden");
+
+  const datasets = chosen.map((c, idx) => {
     const color = COMPARE_COLORS[idx % COMPARE_COLORS.length];
-    const isSel = Array.isArray(selected) && selected.includes(c);
     return {
       label: c.length > 22 ? c.slice(0, 21) + "…" : c,
       data: itemOrder.map((n) => courseScores[c][n] ?? null),
       borderColor: color,
       backgroundColor: color,
-      borderWidth: isSel ? 4 : 2,
-      pointRadius: isSel ? 4 : 2,
+      borderWidth: 3,
+      pointRadius: 3,
       tension: 0.3,
     };
   });
-  const allVals = courses.flatMap((c) => Object.values(courseScores[c]));
+  const allVals = chosen.flatMap((c) => Object.values(courseScores[c]));
   drawChart("compare-chart", {
     type: "line",
     data: { labels: itemOrder, datasets },
