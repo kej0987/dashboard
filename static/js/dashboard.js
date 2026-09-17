@@ -71,7 +71,6 @@ function applyCollapse(listEl, visible) {
 const ICONS = {
   category: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><path d="M5 12.5 12.5 5H19a1 1 0 0 1 1 1v6.5L12.5 20a2 2 0 0 1-2.8 0L5 15.3a2 2 0 0 1 0-2.8z" fill="url(#glassGrad)" opacity="0.9"/><circle cx="15.4" cy="8.6" r="1.4" fill="#fff" opacity="0.9"/></svg>`,
   items: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="4.2" height="9" rx="1.6" fill="url(#glassGrad)" opacity="0.5"/><rect x="9.9" y="7" width="4.2" height="13" rx="1.6" fill="url(#glassGrad)" opacity="0.78"/><rect x="15.8" y="4" width="4.2" height="16" rx="1.6" fill="url(#glassGrad)" opacity="1"/></svg>`,
-  compare: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="4" fill="url(#glassGrad)" opacity="0.26"/><path d="M6 15l3.6-4 3 2.6L20 7" stroke="url(#glassGrad)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   ranking: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v4a5 5 0 0 1-10 0z" fill="url(#glassGrad)" opacity="0.92"/><path d="M5 5h2v2.4A2.5 2.5 0 0 1 5 5zM17 5h2a2.5 2.5 0 0 1-2 2.4z" fill="url(#glassGrad)" opacity="0.55"/><rect x="11" y="12" width="2" height="3" fill="url(#glassGrad)" opacity="0.9"/><rect x="9.4" y="15.3" width="5.2" height="2.2" rx="1" fill="url(#glassGrad)" opacity="0.7"/><rect x="7.8" y="17.8" width="8.4" height="2.5" rx="1.2" fill="url(#glassGrad)" opacity="0.95"/></svg>`,
   keywords: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><rect x="11" y="10" width="10" height="8" rx="3.5" fill="url(#glassGrad)" opacity="0.33"/><rect x="3" y="3" width="13" height="10" rx="4" fill="url(#glassGrad)" opacity="0.92"/><path d="M7 12.5v3.2l3.4-3.2z" fill="url(#glassGrad)" opacity="0.92"/><circle cx="7" cy="8" r="1.1" fill="#fff"/><circle cx="9.6" cy="8" r="1.1" fill="#fff"/><circle cx="12.2" cy="8" r="1.1" fill="#fff"/></svg>`,
   extra: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><path d="M6 16v-6a6 6 0 0 1 12 0v6l1.6 2.2a.6.6 0 0 1-.5 1H4.9a.6.6 0 0 1-.5-1z" fill="url(#glassGrad)" opacity="0.9"/><path d="M9.5 19.6a2.5 2.5 0 0 0 5 0z" fill="url(#glassGrad)" opacity="0.95"/><circle cx="18" cy="6" r="2.8" fill="url(#glassGrad)" opacity="0.45"/></svg>`,
@@ -95,13 +94,6 @@ function axisMin(values) {
   const lo = Math.min(...valid);
   return Math.max(0, Math.floor((lo - 0.2) * 2) / 2);
 }
-
-// 강좌별 비교 차트용 팔레트
-const COMPARE_COLORS = [
-  "#5B4EE8", "#FF6B6B", "#22C55E", "#F59E0B",
-  "#06B6D4", "#EC4899", "#8B5CF6", "#10B981",
-  "#F43F5E", "#3B82F6",
-];
 
 /* ---------- 업로드 ---------- */
 async function uploadFile(file) {
@@ -235,7 +227,6 @@ function render(d) {
   renderOverview(d.overview, d.selected_courses);
   renderCategories(d.categories);
   renderItems(d.items, d.categories);
-  renderCompare(d.item_order, d.course_scores, d.selected_courses);
   renderRanking(d.course_ranking, d.selected_courses);
   renderKeywords(d.keywords, d.ai_analysis);
   renderRawResponses(d.subjective_responses, d.selected_courses);
@@ -421,59 +412,6 @@ function renderItems(items, categories) {
   });
 
   applyCollapse(list, 3); // 상위 3개만 노출, 나머지는 더보기
-}
-
-// 강좌를 선택했을 때만 그린다 — 강좌가 많으면(예: 20개) 전체를 다 그려봐야 선이
-// 뒤엉켜 알아볼 수 없으므로, "전체" 상태에서는 차트를 숨기고 안내만 보여준다.
-function renderCompare(itemOrder, courseScores, selected) {
-  const box = document.querySelector("#sec-compare .chart-box");
-  const empty = $("#compare-empty");
-  const tag = $("#compare-tag");
-  const hint = $("#compare-hint");
-  if (!itemOrder || !courseScores || !box || !empty) return;
-
-  const chosen = (Array.isArray(selected) ? selected : []).filter((c) => c in courseScores);
-  if (!chosen.length) {
-    box.classList.add("hidden");
-    empty.classList.remove("hidden");
-    if (tag) tag.textContent = "강좌 선택 시 표시";
-    if (hint) hint.classList.add("hidden");
-    if (charts["compare-chart"]) { charts["compare-chart"].destroy(); delete charts["compare-chart"]; }
-    return;
-  }
-  box.classList.remove("hidden");
-  empty.classList.add("hidden");
-  if (tag) tag.textContent = `${chosen.length}개 강좌 선택`;
-  if (hint) hint.classList.remove("hidden");
-
-  const datasets = chosen.map((c, idx) => {
-    const color = COMPARE_COLORS[idx % COMPARE_COLORS.length];
-    return {
-      label: c.length > 22 ? c.slice(0, 21) + "…" : c,
-      data: itemOrder.map((n) => courseScores[c][n] ?? null),
-      borderColor: color,
-      backgroundColor: color,
-      borderWidth: 3,
-      pointRadius: 3,
-      tension: 0.3,
-    };
-  });
-  const allVals = chosen.flatMap((c) => Object.values(courseScores[c]));
-  drawChart("compare-chart", {
-    type: "line",
-    data: { labels: itemOrder, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
-      },
-      scales: {
-        y: { min: axisMin(allVals), max: 5, ticks: { stepSize: 0.5 }, grid: { color: "#f3f4f6" } },
-        x: { ticks: { font: { size: 11 }, maxRotation: 40 }, grid: { display: false } },
-      },
-    },
-  });
 }
 
 function renderRanking(rows, selected) {
