@@ -28,6 +28,12 @@ store.save_token_cache = lambda s: True
 import graph
 graph.get_token_silent = lambda: None
 
+# 로컬 config.py 에 실제 ANTHROPIC_API_KEY 가 있어도 테스트는 항상 규칙기반 경로로
+# 고정한다(결정적 결과 + 실제 API 호출/비용 방지).
+import ai_keywords
+_orig_cfg = ai_keywords._cfg
+ai_keywords._cfg = lambda name, default="": "" if name == "ANTHROPIC_API_KEY" else _orig_cfg(name, default)
+
 from fastapi.testclient import TestClient
 import app as appmod
 
@@ -90,10 +96,17 @@ def main():
     print(f"[5] dashboard OK (KPI overall={d['kpi']['overall']}, "
           f"강사={d['kpi']['instructor']}, 강좌수={d['kpi']['course_count']})")
 
-    # 6) 강좌 필터
+    # 6) 강좌 필터 — 필터 시에만 주관식 원본 응답이 채워진다(프론트가 이 값으로 노출여부 결정)
     d2 = client.get("/api/dashboard?course=데이터 분석").json()
     assert d2["kpi"]["respondents"] == 1, d2["kpi"]
-    print(f"[6] course filter OK (데이터 분석 respondents={d2['kpi']['respondents']})")
+    assert d2["subjective_responses"] == ["강사님이 친절했지만 시간이 부족했어요"], d2["subjective_responses"]
+    print(f"[6] course filter OK (데이터 분석 respondents={d2['kpi']['respondents']}, "
+          f"원본응답={d2['subjective_responses']})")
+
+    # 6-1) 종합 분석 요약 — API 키 없는 테스트 환경이므로 규칙기반(rule) 폴백이어야 함
+    assert d["overview"] and d["overview"]["engine"] == "rule", d.get("overview")
+    assert d["overview"]["summary"], d["overview"]
+    print(f"[6-1] overview(rule) OK: {d['overview']['summary'][:40]}...")
 
     # 7) 영속 저장 확인(스텁 메모리)
     assert _MEM["training"] and _MEM["training"]["rows"] == 2, _MEM["training"]

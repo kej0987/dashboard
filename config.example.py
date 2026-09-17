@@ -27,6 +27,9 @@ GITHUB_TOKEN = ""
 # Power Automate webhook 인증용 공유 시크릿(임의 문자열). 앱과 Flow 에 동일 값 사용.
 WEBHOOK_SECRET = ""
 
-# Claude API (주관식 키워드 분석). 키가 비어 있으면 단어 빈도 분석으로 자동 폴백.
+# Claude API (주관식 키워드 분석 + 종합 분석 요약). 키가 비어 있으면 자동/규칙기반으로 폴백.
 ANTHROPIC_API_KEY = ""
+# 순정 Anthropic API 키(api.anthropic.com, sk-ant-api03-...)를 쓸 땐 비워둔다.
+# 엘리스클라우드 ML API 게이트웨이 키를 쓸 땐 게이트웨이 주소를 넣는다(모델 라이브러리 > API 예시 코드 참고).
+ANTHROPIC_BASE_URL = ""
 CLAUDE_MODEL = "claude-sonnet-4-20250514"

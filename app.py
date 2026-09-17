@@ -53,6 +53,7 @@ def _new_state():
         "by_id": {},        # response_id -> record(dict, RID_KEY 포함)
         "df": None,         # 분석용 DataFrame (캐시)
         "ai": None,         # 주관식 키워드 분석 결과 (캐시)
+        "overview": None,   # 종합 분석 요약(전체 데이터 기준, 캐시)
         "filename": None,
         "version": 0,       # 데이터가 실제로 바뀔 때만 +1 (프론트 폴링이 변경 감지)
         "sig": None,        # 현재 데이터의 내용 서명(변경 감지용)
@@ -101,12 +102,32 @@ def _recompute_locked(survey):
     if not records:
         st["df"] = None
         st["ai"] = None
+        st["overview"] = None
     else:
         df = _build_df(records)
         st["df"] = df
         st["ai"] = ai_keywords.analyze_subjective(analyzer.get_subjective_responses(df))
+        st["overview"] = _build_overview(df, st["filename"], survey)
     st["version"] += 1
     st["updated_at"] = time.time()
+
+
+def _build_overview(df, filename, survey):
+    """전체 데이터 기준 종합 분석 요약. Claude API 있으면 AI 요약, 없으면 규칙기반 자동 요약."""
+    full = analyzer.analyze(df, courses=["전체"], filename=filename, survey=survey)
+    stats = {
+        "kpi": full["kpi"],
+        "categories": full["categories"],
+        "items": [{"name": i["name"], "score": i["score"]} for i in full["items"]],
+        "course_ranking": full["course_ranking"][:10],
+    }
+    ai_result = ai_keywords.analyze_overview(stats)
+    if ai_result and ai_result.get("summary"):
+        return {"summary": ai_result["summary"], "engine": "ai"}
+    summary = analyzer.overview_summary(
+        full["kpi"], full["categories"], full["items"], full["course_ranking"]
+    )
+    return {"summary": summary, "engine": "rule"} if summary else None
 
 
 def _persist_locked(survey):
@@ -229,6 +250,7 @@ def dashboard(survey: str = Query("training"), course: list[str] = Query(default
         raise HTTPException(404, "수집된 데이터가 없습니다.")
     data = analyzer.analyze(st["df"], courses=course, filename=st["filename"], survey=survey)
     data["ai_analysis"] = st["ai"]
+    data["overview"] = st["overview"]
     data["version"] = st["version"]
     return data
 

@@ -396,6 +396,32 @@ def course_ranking(df, rating_cols):
 # ---------------------------------------------------------------------------
 # 메인 분석
 # ---------------------------------------------------------------------------
+def overview_summary(kpi, categories, items, course_ranking):
+    """숫자 기반 자동 요약 문장(규칙기반, API 불필요) — ai_keywords.analyze_overview 가
+    ANTHROPIC_API_KEY 미설정으로 None 을 반환할 때의 폴백."""
+    if not items:
+        return ""
+    parts = [f"전체 평균 만족도는 {kpi['overall']:.2f}점(5점 만점)이며, 응답자는 {kpi['respondents']}명입니다."]
+    if categories:
+        best_cat = max(categories, key=lambda c: c["score"])
+        worst_cat = min(categories, key=lambda c: c["score"])
+        if best_cat["name"] != worst_cat["name"]:
+            parts.append(
+                f"'{best_cat['name']}' 영역이 {best_cat['score']:.2f}점으로 가장 높게 평가되었고, "
+                f"'{worst_cat['name']}' 영역은 {worst_cat['score']:.2f}점으로 상대적으로 낮았습니다."
+            )
+    best_item = max(items, key=lambda i: i["score"])
+    worst_item = min(items, key=lambda i: i["score"])
+    parts.append(
+        f"세부 항목 중에서는 '{best_item['name']}'({best_item['score']:.2f}점)이 가장 높은 평가를, "
+        f"'{worst_item['name']}'({worst_item['score']:.2f}점)이 가장 낮은 평가를 받았습니다."
+    )
+    if course_ranking:
+        top = course_ranking[0]
+        parts.append(f"강좌별로는 '{top['course']}'가 {top['score']:.2f}점으로 가장 높은 만족도를 보였습니다.")
+    return " ".join(parts)
+
+
 def analyze(df, courses=None, filename=None, survey="training"):
     """courses: 선택된 강좌 목록. None/빈값/"전체" 포함 시 전체.
     여러 개면 그 강좌들 응답을 합쳐서 평균을 낸다.
@@ -489,6 +515,7 @@ def analyze(df, courses=None, filename=None, survey="training"):
         "items": items,
         "course_ranking": course_ranking(df, rating_cols),
         "keywords": keywords,
+        "subjective_responses": subj_responses,  # 강좌 필터 시 원본 응답 그대로 노출용
         "newsletter": newsletter,
         "wished_courses": wished["options"],   # 막대 차트 = 객관식 옵션만
         "wished_other": wished["other"],       # 기타 직접입력 의견 목록

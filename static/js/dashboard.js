@@ -79,6 +79,7 @@ const ICONS = {
   instructor: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><circle cx="15.5" cy="8.5" r="4" fill="url(#glassGrad)" opacity="0.33"/><circle cx="11.5" cy="8" r="3.7" fill="url(#glassGrad)" opacity="0.95"/><path d="M4.5 20c0-3.9 3.1-6.6 7-6.6s7 2.7 7 6.6z" fill="url(#glassGrad)" opacity="0.9"/></svg>`,
   effect: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="url(#glassGrad)" opacity="0.26"/><circle cx="12" cy="12" r="5.6" fill="url(#glassGrad)" opacity="0.6"/><circle cx="12" cy="12" r="2.4" fill="url(#glassGrad)" opacity="1"/></svg>`,
 };
+ICONS.overview = ICONS.effect;  // 종합 분석 요약 섹션도 같은 아이콘 재사용
 
 // 카테고리 아이콘/설명
 const CAT_META = {
@@ -231,14 +232,48 @@ async function loadDashboard(courses, silent) {
 /* ---------- 렌더링 ---------- */
 function render(d) {
   renderKpi(d.kpi);
+  renderOverview(d.overview);
   renderCategories(d.categories);
   renderItems(d.items, d.categories);
   renderCompare(d.item_order, d.course_scores, d.selected_courses);
   renderRanking(d.course_ranking, d.selected_courses);
   renderKeywords(d.keywords, d.ai_analysis);
+  renderRawResponses(d.subjective_responses, d.selected_courses);
   renderNewsletter(d.newsletter);
   renderWished(d.wished_courses);
   renderWishedOther(d.wished_other);
+}
+
+// 종합 분석 요약 (전체 데이터 기준, ANTHROPIC_API_KEY 있으면 AI 요약 / 없으면 자동 요약 문장)
+function renderOverview(o) {
+  const card = $("#overview-card");
+  const tag = $("#overview-tag");
+  if (!card) return;
+  if (!o || !o.summary) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  $("#overview-text").textContent = o.summary;
+  if (tag) tag.textContent = o.engine === "ai" ? "Claude AI 분석" : "자동 요약";
+}
+
+// 강좌를 특정해서 선택했을 때만 주관식 원본 응답을 그대로 보여준다("전체"일 땐 숨김).
+function renderRawResponses(responses, selected) {
+  const card = $("#raw-responses-card");
+  const list = $("#raw-responses-list");
+  if (!card || !list) return;
+  const hasFilter = Array.isArray(selected) && selected.length > 0;
+  if (!hasFilter) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  list.innerHTML = "";
+  if (!responses || !responses.length) {
+    list.innerHTML = '<p class="card-hint">응답이 없습니다.</p>';
+    return;
+  }
+  responses.forEach((text) => {
+    const item = document.createElement("div");
+    item.className = "raw-response-item";
+    item.textContent = text;
+    list.appendChild(item);
+  });
 }
 
 function renderKpi(k) {

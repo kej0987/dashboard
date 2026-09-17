@@ -26,12 +26,18 @@ services:
         value: "5e4d0864-823e-41b4-b503-c0d505af9c39"
       - key: SHAREPOINT_LIST_NAME_SUPPORT
         value: "[엘리스랩 부산센터] 2026년도 지원비과정 만족도 조사"
+      # 엘리스클라우드 ML API 게이트웨이(Claude Sonnet 5) 사용 중 — api.anthropic.com 이 아님.
+      # 순정 Anthropic 키(sk-ant-api03-...)로 바꾸면 ANTHROPIC_BASE_URL 을 비우면 된다.
+      - key: ANTHROPIC_BASE_URL
+        value: "https://mlapi.run/e9a5f41b-fdda-44f2-9545-ed88c458da53"
+      - key: CLAUDE_MODEL
+        value: "anthropic/claude-sonnet-5"
       # --- 비밀값: Render 대시보드 Environment 에서 직접 입력(sync:false → 깃 미저장) ---
       - key: GITHUB_TOKEN           # Gist 읽기/쓰기 PAT (gist scope). 토큰캐시+데이터 저장
         sync: false
       - key: GITHUB_GIST_ID         # 데이터+토큰캐시 보관 Gist ID (데이터 위치라 비공개 취급)
         sync: false
-      - key: ANTHROPIC_API_KEY      # (선택) 주관식 키워드 AI 분석. 없으면 규칙기반 폴백
+      - key: ANTHROPIC_API_KEY      # (선택) 주관식 키워드 AI 분석 + 종합 요약. 없으면 규칙기반 폴백
         sync: false
       - key: WEBHOOK_SECRET         # (선택) webhook 경로 미사용 시 불필요
         sync: false

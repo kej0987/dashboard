@@ -35,6 +35,16 @@ def _cfg(name, default=""):
         return getattr(config, name, default)
     return default
 
+
+def _client(anthropic_module, key):
+    """ANTHROPIC_BASE_URL 설정 시 그쪽(예: 엘리스클라우드 ML API 게이트웨이)으로 붙는다.
+    그 게이트웨이는 Authorization: Bearer 방식이라 auth_token 을 쓴다.
+    비어 있으면 기존처럼 api.anthropic.com 에 api_key 로 붙는다(순정 Anthropic 키용)."""
+    base_url = (_cfg("ANTHROPIC_BASE_URL", "") or "").strip()
+    if base_url:
+        return anthropic_module.Anthropic(auth_token=key, base_url=base_url)
+    return anthropic_module.Anthropic(api_key=key)
+
 SYSTEM_PROMPT = (
     "당신은 교육 만족도 조사 분석 전문가입니다. 수강생들의 주관식 응답을 분석해 "
     "의미 있는 키워드와 주제를 추출합니다.\n"
@@ -106,10 +116,13 @@ def analyze_subjective(responses):
     )
 
     try:
-        client = anthropic.Anthropic(api_key=key)
+        client = _client(anthropic, key)
         resp = client.messages.create(
             model=model,
-            max_tokens=2000,
+            # 응답이 많으면 모델이 extended thinking 을 자동으로 써서 추론 토큰을 먼저 소모한다
+            # (게이트웨이 모델 기준 확인: 응답 120건 프롬프트에서 thinking_tokens ~2700).
+            # max_tokens 가 작으면 사고만 하다 끝나(stop_reason=max_tokens) 본문이 비어버리므로 넉넉히 잡는다.
+            max_tokens=4096,
             system=[{
                 "type": "text",
                 "text": SYSTEM_PROMPT,
@@ -133,3 +146,36 @@ def analyze_subjective(responses):
         "summary": str(data.get("summary", "")).strip(),
         "respondents": len(responses),
     }
+
+
+def analyze_overview(stats):
+    """KPI/카테고리/항목/강좌순위 숫자를 바탕으로 종합 분석 요약(3~4문장)을 생성한다.
+    키가 없거나 실패하면 None 을 반환 → analyzer.overview_summary 규칙기반 문장으로 폴백."""
+    key = (_cfg("ANTHROPIC_API_KEY", "") or "").strip()
+    if not key:
+        return None
+
+    try:
+        import anthropic
+    except ImportError:
+        return None  # 키워드 분석 쪽에서 이미 안내하므로 여기선 조용히 폴백
+
+    model = _cfg("CLAUDE_MODEL", "claude-sonnet-4-20250514")
+    prompt = (
+        "다음은 교육 만족도 조사 결과 통계입니다(JSON). 담당자가 한눈에 파악할 수 있도록 "
+        "핵심 특징과 시사점을 3~4문장으로 종합 요약해 주세요. 숫자를 단순 나열하지 말고 "
+        "의미 있는 해석 위주로, 존댓말로 작성하세요.\n\n" + json.dumps(stats, ensure_ascii=False)
+    )
+    try:
+        client = _client(anthropic, key)
+        resp = client.messages.create(
+            model=model, max_tokens=1500,  # extended thinking 대비 여유(analyze_subjective 참고)
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except Exception:  # noqa: BLE001 — 실패 시 조용히 규칙기반 폴백
+        return None
+
+    text = "".join(
+        getattr(b, "text", "") for b in resp.content if getattr(b, "type", "") == "text"
+    ).strip()
+    return {"summary": text} if text else None

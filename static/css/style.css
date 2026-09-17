@@ -74,6 +74,8 @@ body {
 }
 .tab-btn:hover { background: var(--primary-soft); color: var(--primary); }
 .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 6px 16px rgba(91, 78, 232, 0.30); }
+/* 지원비과정 탭은 훈련비(보라)와 구분되게 오렌지로 강조 — 탭 전환이 눈에 띄도록 */
+.tab-btn[data-survey="support"].active { background: var(--orange); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35); }
 
 .nav { padding: 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .nav-item {
@@ -371,6 +373,16 @@ body {
 }
 .ai-summary .ai-summary-icon { font-size: 20px; line-height: 1.4; }
 .ai-summary p { font-size: 14px; line-height: 1.65; color: var(--text); margin: 0; }
+
+/* 종합 분석 요약 카드 (KPI 바로 아래) */
+.overview-text { font-size: 15px; line-height: 1.75; color: var(--text); margin-bottom: 8px; }
+
+/* 주관식 원본 응답 (강좌 필터 시) */
+.raw-response-list { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; }
+.raw-response-item {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; font-size: 13.5px; line-height: 1.6; color: var(--text);
+}
 
 .kw-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
 .kw-col { border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
