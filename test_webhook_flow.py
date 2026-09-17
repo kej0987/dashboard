@@ -12,12 +12,12 @@ os.environ["WEBHOOK_SECRET"] = "local-test-secret"
 
 import store
 
-# --- Gist 를 메모리로 대체 (네트워크/실데이터 보호) ---
-_MEM = {"payload": None}
-store.load_payload = lambda: _MEM["payload"]
-def _save(records, filename, updated_at):
-    _MEM["payload"] = {"filename": filename, "updated_at": updated_at,
-                       "rows": len(records), "records": records}
+# --- Gist 를 메모리로 대체 (네트워크/실데이터 보호), survey 별로 분리 ---
+_MEM = {"training": None, "support": None}
+store.load_payload = lambda survey="training": _MEM[survey]
+def _save(records, filename, updated_at, survey="training"):
+    _MEM[survey] = {"filename": filename, "updated_at": updated_at,
+                     "rows": len(records), "records": records}
     return True
 store.save_payload = _save
 # 토큰 캐시 읽기/쓰기도 네트워크 차단
@@ -96,10 +96,53 @@ def main():
     print(f"[6] course filter OK (데이터 분석 respondents={d2['kpi']['respondents']})")
 
     # 7) 영속 저장 확인(스텁 메모리)
-    assert _MEM["payload"] and _MEM["payload"]["rows"] == 2, _MEM["payload"]
-    rids = {r[appmod.RID_KEY] for r in _MEM["payload"]["records"]}
+    assert _MEM["training"] and _MEM["training"]["rows"] == 2, _MEM["training"]
+    rids = {r[appmod.RID_KEY] for r in _MEM["training"]["records"]}
     assert rids == {"r1", "r2"}, rids
     print(f"[7] persist OK (저장된 응답ID={rids})")
+
+    # 8) 지원비과정 탭 — 훈련비와 완전히 독립된 상태/문항 매핑인지 확인.
+    #    컬럼명은 실제 SharePoint 표시이름 그대로 사용한다(Forms 섹션이 앞에 "카테고리."를
+    #    붙이고 끝에 "."을 붙인다 — inspect_list.py support 로 직접 확인한 실제 형태).
+    support_record = {
+        "id": "s1", "filename": "지원비과정 만족도 조사",
+        "record": {
+            "수강하신 교육을 선택해 주세요": "AI 활용 실무",
+            " 교육 만족도.교육 내용이 참여 목적과 잘 부합했다.": 5,
+            " 교육 만족도.교육 난이도가 적절했다.": 4,
+            " 교육 만족도.이론/실습 구성이 적절했다.": 5,
+            " 교육 만족도.실습 및 교육 자료가 학습에 도움이 되었다.": 4,
+            " 교육 만족도.교육 시간이 내용을 학습하기에 적절했다.": 4,
+            "강사 만족도.교육 주제에 대한 전문성을 갖추고 있었다.": 5,
+            "강사 만족도.강의 내용이 이해하기 쉽고 체계적으로 전달되었다.": 5,
+            "강사 만족도.실습 진행과 안내가 원활했다.": 4,
+            "강사 만족도.질문에 명확하고 충분하게 답변하였다.": 5,
+            "학습효과.교육을 통해 새로운 지식과 기술을 습득했다.": 5,
+            "학습효과.실제 업무에 적용할 수 있는 아이디어를 얻었다.": 4,
+            "학습효과.교육 내용을 업무 또는 관련 활동에 활용할 수 있다고 생각한다.": 5,
+            "학습효과.AI를 활용하는 데 대한 자신감이 향상되었다.": 5,
+            "이번 교육에서 가장 도움이 되었던 내용과 향후 보완되었으면 하는 점을 자유롭게 작성해 주세요.":
+                "실습 위주라 도움이 많이 됐고, 시간이 조금 더 보완되었으면 합니다",
+        },
+    }
+    r = client.post("/webhook/forms?survey=support", headers=H, json=support_record)
+    assert r.status_code == 200 and r.json()["total"] == 1, r.text
+    # 훈련비 탭은 그대로 2건이어야 함(서로 섞이지 않음)
+    s_train = client.get("/api/status?survey=training").json()
+    assert s_train["rows"] == 2, s_train
+    d = client.get("/api/dashboard?survey=support&course=전체").json()
+    assert d["kpi"]["respondents"] == 1, d["kpi"]
+    names = {i["name"] for i in d["items"]}
+    assert names == {
+        "참여목적 부합", "난이도", "이론/실습 구성", "교육 자료", "교육 시간",
+        "강사 전문성", "수업 전달력", "실습 진행", "질문 응답",
+        "지식 습득", "업무 아이디어", "실무 활용", "AI 활용 자신감",
+    }, names
+    assert _MEM["support"] and _MEM["support"]["rows"] == 1, _MEM["support"]
+    kw = d["keywords"]
+    assert kw["positive"] or kw["negative"], "지원비 주관식(보완 문구) 응답이 인식되지 않음"
+    print(f"[8] support survey OK (독립 상태 확인, 13개 항목 매핑={len(names)}개, "
+          f"주관식 인식={bool(kw['positive'] or kw['negative'])})")
 
     print("\n[OK] 전체 통과")
 

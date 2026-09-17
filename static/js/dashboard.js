@@ -109,7 +109,7 @@ async function uploadFile(file) {
   fd.append("file", file);
   showOverlay("데이터를 분석하는 중...");
   try {
-    const res = await fetch("/upload", { method: "POST", body: fd });
+    const res = await fetch(`/upload?survey=${currentSurvey}`, { method: "POST", body: fd });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "업로드 실패");
     toast(`'${data.filename}' 업로드 완료 (${data.rows}건)`);
@@ -124,23 +124,33 @@ async function uploadFile(file) {
   }
 }
 
-let selectedCourses = [];      // 선택된 강좌들(빈 배열 = 전체)
-let allCourses = [];
-let lastVersion = -1;          // 서버 데이터 버전(자동 새로고침 변경 감지용)
-const REFRESH_MS = 20000;      // 20초마다 새 응답 여부 확인
+// 설문(탭) 종류와 표시 제목. 탭별로 강좌 선택/강좌 목록/버전을 독립적으로 관리한다.
+const SURVEY_TITLES = {
+  training: "훈련비과정 만족도 조사",
+  support: "지원비과정 만족도 조사",
+};
+let currentSurvey = "training";
+const surveyState = {
+  training: { selectedCourses: [], allCourses: [], lastVersion: -1 },
+  support: { selectedCourses: [], allCourses: [], lastVersion: -1 },
+};
+function cur() { return surveyState[currentSurvey]; }
+
+const REFRESH_MS = 20000;      // 20초마다 새 응답 여부 확인(현재 보고 있는 탭 기준)
 
 function shorten(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
 // 체크박스 목록을 (재)구성한다. keep=true 면 기존 선택을 유지한다.
 function populateCourses(courses, keep) {
-  allCourses = courses || [];
-  if (!keep) selectedCourses = [];
-  selectedCourses = selectedCourses.filter((c) => allCourses.includes(c));
+  const s = cur();
+  s.allCourses = courses || [];
+  if (!keep) s.selectedCourses = [];
+  s.selectedCourses = s.selectedCourses.filter((c) => s.allCourses.includes(c));
   const panel = $("#course-ms-panel");
   if (!panel) return;
   panel.innerHTML = "";
-  panel.appendChild(makeMsOption("전체", selectedCourses.length === 0, true));
-  allCourses.forEach((c) => panel.appendChild(makeMsOption(c, selectedCourses.includes(c), false)));
+  panel.appendChild(makeMsOption("전체", s.selectedCourses.length === 0, true));
+  s.allCourses.forEach((c) => panel.appendChild(makeMsOption(c, s.selectedCourses.includes(c), false)));
   updateMsLabel();
 }
 
@@ -161,27 +171,29 @@ function makeMsOption(label, checked, isAll) {
 }
 
 function onMsChange(isAll) {
+  const s = cur();
   const panel = $("#course-ms-panel");
   const allCb = panel.querySelector('input[data-all="1"]');
   if (isAll) {
     // "전체" 선택 → 개별 모두 해제, 전체는 항상 체크 유지
     panel.querySelectorAll('input[data-all="0"]').forEach((x) => (x.checked = false));
     if (allCb) allCb.checked = true;
-    selectedCourses = [];
+    s.selectedCourses = [];
   } else {
-    selectedCourses = Array.from(panel.querySelectorAll('input[data-all="0"]:checked')).map((x) => x.value);
-    if (allCb) allCb.checked = selectedCourses.length === 0;
+    s.selectedCourses = Array.from(panel.querySelectorAll('input[data-all="0"]:checked')).map((x) => x.value);
+    if (allCb) allCb.checked = s.selectedCourses.length === 0;
   }
   updateMsLabel();
-  loadDashboard(selectedCourses);
+  loadDashboard(s.selectedCourses);
 }
 
 function updateMsLabel() {
   const el = $("#course-ms-label");
   if (!el) return;
-  if (!selectedCourses.length) el.textContent = "전체";
-  else if (selectedCourses.length === 1) el.textContent = shorten(selectedCourses[0], 26);
-  else el.textContent = `${selectedCourses.length}개 강좌 선택`;
+  const sc = cur().selectedCourses;
+  if (!sc.length) el.textContent = "전체";
+  else if (sc.length === 1) el.textContent = shorten(sc[0], 26);
+  else el.textContent = `${sc.length}개 강좌 선택`;
 }
 
 function initMultiselect() {
@@ -197,13 +209,15 @@ function initMultiselect() {
 // silent=true 이면 오버레이 없이 조용히 갱신한다(자동 새로고침용).
 async function loadDashboard(courses, silent) {
   if (!silent) showOverlay("대시보드를 갱신하는 중...");
+  const survey = currentSurvey;   // 요청 도중 탭이 바뀔 수 있어 스냅샷
   try {
     const list = (courses && courses.length) ? courses : ["전체"];
     const qs = list.map((c) => `course=${encodeURIComponent(c)}`).join("&");
-    const res = await fetch(`/api/dashboard?${qs}`);
+    const res = await fetch(`/api/dashboard?survey=${survey}&${qs}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "데이터 로드 실패");
-    if (typeof data.version === "number") lastVersion = data.version;
+    if (survey !== currentSurvey) return;  // 응답 도착 전에 다른 탭으로 전환됨 → 폐기
+    if (typeof data.version === "number") surveyState[survey].lastVersion = data.version;
     $("#empty-state").classList.add("hidden");
     $("#dashboard").classList.remove("hidden");
     render(data);
@@ -592,6 +606,34 @@ function drawChart(id, config) {
   charts[id] = new Chart(ctx, config);
 }
 
+/* ---------- 탭(설문) 전환 ---------- */
+function switchSurvey(survey) {
+  if (survey === currentSurvey || !surveyState[survey]) return;
+  currentSurvey = survey;
+  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.survey === survey));
+  $("#page-title").textContent = SURVEY_TITLES[survey];
+  $("#dashboard").classList.add("hidden");
+  $("#empty-state").classList.remove("hidden");
+  $("#subtitle").textContent = "데이터를 불러오는 중…";
+  $("#side-filename").textContent = "데이터 없음";
+  loadStatusAndDashboard();
+}
+
+// /api/status 조회 후 데이터가 있으면 대시보드까지 로드(초기 로드/탭 전환 공용).
+function loadStatusAndDashboard() {
+  const survey = currentSurvey;
+  fetch(`/api/status?survey=${survey}`)
+    .then((r) => r.json())
+    .then((s) => {
+      if (survey !== currentSurvey) return;
+      if (s.has_data) {
+        applyStatus(s);
+        loadDashboard(surveyState[survey].selectedCourses);
+      }
+    })
+    .catch(() => {});
+}
+
 /* ---------- 이벤트 ---------- */
 function init() {
   // 섹션 제목에 글래스모피즘 아이콘 주입
@@ -614,20 +656,17 @@ function init() {
     });
   });
 
+  // 설문 탭(훈련비과정 / 지원비과정)
+  document.querySelectorAll(".tab-btn").forEach((b) => {
+    b.addEventListener("click", () => switchSurvey(b.dataset.survey));
+  });
+
   initMultiselect();
 
   // 이미 수집된 데이터가 있으면 바로 로드
-  fetch("/api/status")
-    .then((r) => r.json())
-    .then((s) => {
-      if (s.has_data) {
-        applyStatus(s);
-        loadDashboard(selectedCourses);
-      }
-    })
-    .catch(() => {});
+  loadStatusAndDashboard();
 
-  // 자동 새로고침: 주기적으로 status 를 확인해 version 이 바뀌면 조용히 다시 로드
+  // 자동 새로고침: 주기적으로 현재 탭의 status 를 확인해 version 이 바뀌면 조용히 다시 로드
   setInterval(checkForUpdates, REFRESH_MS);
 }
 
@@ -638,14 +677,16 @@ function applyStatus(s) {
   $("#subtitle").textContent = `${s.filename} · 응답 ${s.rows}건`;
 }
 
-// 새 응답 감지 시 화면을 조용히(오버레이 없이) 갱신한다.
+// 새 응답 감지 시 화면을 조용히(오버레이 없이) 갱신한다(현재 보고 있는 탭 기준).
 async function checkForUpdates() {
+  const survey = currentSurvey;
   try {
-    const s = await (await fetch("/api/status")).json();
+    const s = await (await fetch(`/api/status?survey=${survey}`)).json();
+    if (survey !== currentSurvey) return;
     if (!s.has_data) return;
-    if (s.version === lastVersion) return;   // 변경 없음
+    if (s.version === surveyState[survey].lastVersion) return;   // 변경 없음
     applyStatus(s);
-    await loadDashboard(selectedCourses, true); // silent
+    await loadDashboard(surveyState[survey].selectedCourses, true); // silent
     toast(`새 응답 반영됨 (총 ${s.rows}건)`);
   } catch (e) {
     /* 네트워크 일시 오류는 무시 */

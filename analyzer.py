@@ -50,6 +50,26 @@ FALLBACK_RULES = [
 ]
 DEFAULT_CATEGORY = "교육 구성"
 
+# ---------------------------------------------------------------------------
+# 지원비과정 설문 매핑 — 훈련비와 문항 문구가 달라 키워드매칭 대신 질문 전문을
+# 정확매칭한다(공백 차이만 무시). 13문항: 교육만족도5 + 강사만족도4 + 학습효과4.
+# ---------------------------------------------------------------------------
+SUPPORT_ITEM_MAP = {
+    "교육 내용이 참여 목적과 잘 부합했다": ("참여목적 부합", "교육 구성"),
+    "교육 난이도가 적절했다": ("난이도", "교육 구성"),
+    "이론/실습 구성이 적절했다": ("이론/실습 구성", "교육 구성"),
+    "실습 및 교육 자료가 학습에 도움이 되었다": ("교육 자료", "교육 구성"),
+    "교육 시간이 내용을 학습하기에 적절했다": ("교육 시간", "교육 구성"),
+    "교육 주제에 대한 전문성을 갖추고 있었다": ("강사 전문성", "강사 역량"),
+    "강의 내용이 이해하기 쉽고 체계적으로 전달되었다": ("수업 전달력", "강사 역량"),
+    "실습 진행과 안내가 원활했다": ("실습 진행", "강사 역량"),
+    "질문에 명확하고 충분하게 답변하였다": ("질문 응답", "강사 역량"),
+    "교육을 통해 새로운 지식과 기술을 습득했다": ("지식 습득", "교육 효과"),
+    "실제 업무에 적용할 수 있는 아이디어를 얻었다": ("업무 아이디어", "교육 효과"),
+    "교육 내용을 업무 또는 관련 활동에 활용할 수 있다고 생각한다": ("실무 활용", "교육 효과"),
+    "AI를 활용하는 데 대한 자신감이 향상되었다": ("AI 활용 자신감", "교육 효과"),
+}
+
 # ---- 주관식 키워드 분석 (규칙 기반, API 불필요) ----
 # 무의미어 / 어미 / 접속어 / 도메인 필러: 토큰 자체를 제거
 STOPWORDS = {
@@ -160,6 +180,23 @@ def resolve_item(col, used):
     return name, _fallback_category(col)
 
 
+def get_support_rating_columns(df):
+    """지원비과정: 질문 전문(정규화) 포함매칭으로 평가문항 컬럼/메타를 찾는다.
+    Forms가 섹션을 만들면 SharePoint 표시이름이 "카테고리.질문." 형태로 앞뒤에
+    덧붙는다(예: " 교육 만족도.교육 내용이 참여 목적과 잘 부합했다.") — 정확매칭 대신
+    포함매칭을 써서 그 앞뒤 덧붙는 텍스트를 무시한다.
+    반환 순서는 SUPPORT_ITEM_MAP 정의 순서(교육만족도→강사만족도→학습효과)."""
+    cols, meta = [], {}
+    for question, (name, cat) in SUPPORT_ITEM_MAP.items():
+        nq = _norm(question)
+        col = next((c for c in df.columns if nq in _norm(c)), None)
+        if col is None:
+            continue
+        cols.append(col)
+        meta[col] = {"name": name, "label": str(col).strip(), "category": cat}
+    return cols, meta
+
+
 def get_courses(df):
     course_col = get_course_col(df)
     if not course_col:
@@ -171,7 +208,7 @@ def get_courses(df):
 
 def get_subjective_responses(df):
     """주관식(도움/개선) 응답 텍스트 목록을 반환한다 (AI 분석 입력용)."""
-    col = find_col(df, "도움", "개선") or find_col(df, "느낀")
+    col = find_col(df, "도움", "개선") or find_col(df, "도움", "보완") or find_col(df, "느낀")
     if not col:
         return []
     return [str(v).strip() for v in df[col].dropna().astype(str) if str(v).strip()]
@@ -359,20 +396,22 @@ def course_ranking(df, rating_cols):
 # ---------------------------------------------------------------------------
 # 메인 분석
 # ---------------------------------------------------------------------------
-def analyze(df, courses=None, filename=None):
+def analyze(df, courses=None, filename=None, survey="training"):
     """courses: 선택된 강좌 목록. None/빈값/"전체" 포함 시 전체.
-    여러 개면 그 강좌들 응답을 합쳐서 평균을 낸다."""
-    rating_cols = get_rating_columns(df)
+    여러 개면 그 강좌들 응답을 합쳐서 평균을 낸다.
+    survey: "training"(훈련비, 기본, 키워드매칭) | "support"(지원비, 질문전문 정확매칭)."""
+    if survey == "support":
+        rating_cols, meta = get_support_rating_columns(df)
+    else:
+        rating_cols = get_rating_columns(df)
+        used = set()
+        meta = {}
+        for col in rating_cols:
+            name, cat = resolve_item(col, used)
+            meta[col] = {"name": name, "label": str(col).strip(), "category": cat}
     course_col = get_course_col(df)
     selected = [str(c).strip() for c in (courses or [])
                 if c and str(c).strip() and str(c).strip() != "전체"]
-
-    # 컬럼 -> 메타(이름/카테고리) 1회 계산
-    used = set()
-    meta = {}
-    for col in rating_cols:
-        name, cat = resolve_item(col, used)
-        meta[col] = {"name": name, "label": str(col).strip(), "category": cat}
 
     # 필터 적용 (선택된 강좌들의 합집합)
     if selected and course_col:
@@ -409,7 +448,7 @@ def analyze(df, courses=None, filename=None):
         overall = 0.0
 
     # 주관식 / 다중선택 / 소식수신
-    subj_col = find_col(df, "도움", "개선") or find_col(df, "느낀")
+    subj_col = find_col(df, "도움", "개선") or find_col(df, "도움", "보완") or find_col(df, "느낀")
     wish_col = find_col(df, "추후", "훈련") or find_col(df, "진행했으면")
     news_col = find_col(df, "소식") or find_col(df, "받아보")
 

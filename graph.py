@@ -172,27 +172,40 @@ def get_items(token, site_id, list_id, colmap):
     return records
 
 
-def fetch_records():
-    """전체 파이프라인: 토큰→사이트→리스트→컬럼맵→아이템 → (records, filename)."""
+def _list_id_and_name(token, site_id, survey):
+    """survey 별 리스트 (id, 표시용 이름)을 반환한다.
+    'support' 는 GUID 를 이미 알고 있으므로 이름기반 탐색 없이 직접 조회."""
+    if survey == "support":
+        guid = (store.cfg("SHAREPOINT_LIST_ID_SUPPORT", "") or "").strip()
+        if not guid:
+            raise RuntimeError("SHAREPOINT_LIST_ID_SUPPORT 가 설정되지 않았습니다.")
+        list_id = _get(token, f"/sites/{site_id}/lists/{guid}")["id"]
+        list_name = store.cfg("SHAREPOINT_LIST_NAME_SUPPORT", "지원비과정 만족도 조사")
+        return list_id, list_name
+    list_name = store.cfg("SHAREPOINT_LIST_NAME", store.cfg("SHEET_NAME", ""))
+    return get_list_id(token, site_id, list_name), list_name
+
+
+def fetch_records(survey="training"):
+    """전체 파이프라인: 토큰→사이트→리스트→컬럼맵→아이템 → (records, filename).
+    survey: "training"(훈련비과정, 기본) | "support"(지원비과정) — 같은 사이트의 다른 리스트."""
     token = get_token_silent()
     if not token:
         raise RuntimeError("로그인 토큰이 없습니다. bootstrap_login.py 로 1회 로그인하세요.")
     site_id = get_site_id(token)
-    list_name = store.cfg("SHAREPOINT_LIST_NAME", store.cfg("SHEET_NAME", ""))
-    list_id = get_list_id(token, site_id, list_name)
+    list_id, list_name = _list_id_and_name(token, site_id, survey)
     colmap = get_column_map(token, site_id, list_id)
     records = get_items(token, site_id, list_id, colmap)
     return records, list_name
 
 
-def inspect_columns():
+def inspect_columns(survey="training"):
     """진단용: 실제 컬럼(내부이름/표시이름)과 샘플 1건을 반환."""
     token = get_token_silent()
     if not token:
         raise RuntimeError("로그인 토큰이 없습니다. bootstrap_login.py 로 1회 로그인하세요.")
     site_id = get_site_id(token)
-    list_name = store.cfg("SHAREPOINT_LIST_NAME", store.cfg("SHEET_NAME", ""))
-    list_id = get_list_id(token, site_id, list_name)
+    list_id, list_name = _list_id_and_name(token, site_id, survey)
     colmap = get_column_map(token, site_id, list_id)
     sample = _get(
         token,

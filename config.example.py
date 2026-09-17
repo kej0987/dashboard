@@ -15,6 +15,10 @@ SHEET_NAME = "[엘리스랩 부산센터] 2026년도 훈련비과정 만족도 �
 SHAREPOINT_LIST_NAME = "[엘리스랩 부산센터] 2026년도 훈련비과정 만족도 조사1"  # 표시이름
 SHAREPOINT_LIST_URLNAME = "2026 1"   # URL 내부이름
 SHAREPOINT_LIST_ID = ""              # GUID(가장 안정적). inspect_list.py 가 알려줌
+
+# 지원비과정 만족도 조사 리스트 (같은 사이트, GUID만 다름)
+SHAREPOINT_LIST_ID_SUPPORT = ""
+SHAREPOINT_LIST_NAME_SUPPORT = "[엘리스랩 부산센터] 2026년도 지원비과정 만족도 조사"
 # 주의: Gist 에 데이터 + 토큰 캐시(refresh token)가 저장되므로 ID 를 커밋하지 말 것.
 # 실제 값은 환경변수(GITHUB_GIST_ID) 또는 로컬 config.py 에만 둔다.
 GITHUB_GIST_ID = ""

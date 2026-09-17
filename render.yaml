@@ -22,6 +22,10 @@ services:
         value: "e61f6de3-ae4d-41f2-8e4d-efa473f914f6"
       - key: SHAREPOINT_LIST_NAME
         value: "[엘리스랩 부산센터] 2026년도 훈련비과정 만족도 조사1"
+      - key: SHAREPOINT_LIST_ID_SUPPORT
+        value: "5e4d0864-823e-41b4-b503-c0d505af9c39"
+      - key: SHAREPOINT_LIST_NAME_SUPPORT
+        value: "[엘리스랩 부산센터] 2026년도 지원비과정 만족도 조사"
       # --- 비밀값: Render 대시보드 Environment 에서 직접 입력(sync:false → 깃 미저장) ---
       - key: GITHUB_TOKEN           # Gist 읽기/쓰기 PAT (gist scope). 토큰캐시+데이터 저장
         sync: false

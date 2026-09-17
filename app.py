@@ -42,21 +42,35 @@ RID_KEY = "_response_id"
 app = FastAPI(title="엘리스랩 만족도 대시보드")
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
-# ---- 전역 공유 상태 ----
-_LOCK = threading.Lock()        # STATE 변경 보호
-_FETCH_LOCK = threading.Lock()  # Graph 동시 갱신 1개로 제한
-GRAPH_TTL = 20                  # 초: 이 간격마다 SharePoint 를 다시 읽음
-STATE = {
-    "by_id": {},        # response_id -> record(dict, RID_KEY 포함)
-    "df": None,         # 분석용 DataFrame (캐시)
-    "ai": None,         # 주관식 키워드 분석 결과 (캐시)
-    "filename": None,
-    "version": 0,       # 데이터가 실제로 바뀔 때만 +1 (프론트 폴링이 변경 감지)
-    "sig": None,        # 현재 데이터의 내용 서명(변경 감지용)
-    "updated_at": 0,
-    "last_fetch": 0,    # 마지막 Graph 조회 시각
-    "loaded": False,    # Gist 콜드스타트 로드 완료 여부
-}
+# ---- 전역 공유 상태 (설문별 독립) ----
+# "training"=훈련비과정(기본), "support"=지원비과정 — 같은 사이트의 다른 SharePoint 리스트.
+SURVEYS = ("training", "support")
+GRAPH_TTL = 20  # 초: 이 간격마다 SharePoint 를 다시 읽음
+
+
+def _new_state():
+    return {
+        "by_id": {},        # response_id -> record(dict, RID_KEY 포함)
+        "df": None,         # 분석용 DataFrame (캐시)
+        "ai": None,         # 주관식 키워드 분석 결과 (캐시)
+        "filename": None,
+        "version": 0,       # 데이터가 실제로 바뀔 때만 +1 (프론트 폴링이 변경 감지)
+        "sig": None,        # 현재 데이터의 내용 서명(변경 감지용)
+        "updated_at": 0,
+        "last_fetch": 0,    # 마지막 Graph 조회 시각
+        "loaded": False,    # Gist 콜드스타트 로드 완료 여부
+    }
+
+
+STATE = {s: _new_state() for s in SURVEYS}
+_LOCKS = {s: threading.Lock() for s in SURVEYS}        # STATE[s] 변경 보호
+_FETCH_LOCKS = {s: threading.Lock() for s in SURVEYS}  # survey 별 Graph 동시 갱신 1개로 제한
+
+
+def _parse_survey(survey: str) -> str:
+    if survey not in SURVEYS:
+        raise HTTPException(400, f"알 수 없는 survey 입니다: {survey!r} (training|support)")
+    return survey
 
 
 def _signature(records):
@@ -75,92 +89,98 @@ def _build_df(records):
     return df
 
 
-def _recompute_locked():
-    """STATE['by_id'] 로부터 df/ai 를 다시 계산. 내용이 바뀐 경우에만 version 증가.
-    (_LOCK 보유 상태에서 호출)"""
-    records = list(STATE["by_id"].values())
+def _recompute_locked(survey):
+    """STATE[survey]['by_id'] 로부터 df/ai 를 다시 계산. 내용이 바뀐 경우에만 version 증가.
+    (_LOCKS[survey] 보유 상태에서 호출)"""
+    st = STATE[survey]
+    records = list(st["by_id"].values())
     sig = _signature(records)
-    if sig == STATE["sig"]:
+    if sig == st["sig"]:
         return  # 변경 없음 → 재계산/버전증가 생략(불필요한 AI 호출 방지)
-    STATE["sig"] = sig
+    st["sig"] = sig
     if not records:
-        STATE["df"] = None
-        STATE["ai"] = None
+        st["df"] = None
+        st["ai"] = None
     else:
         df = _build_df(records)
-        STATE["df"] = df
-        STATE["ai"] = ai_keywords.analyze_subjective(analyzer.get_subjective_responses(df))
-    STATE["version"] += 1
-    STATE["updated_at"] = time.time()
+        st["df"] = df
+        st["ai"] = ai_keywords.analyze_subjective(analyzer.get_subjective_responses(df))
+    st["version"] += 1
+    st["updated_at"] = time.time()
 
 
-def _persist_locked():
+def _persist_locked(survey):
     """현재 상태를 Gist 에 저장(베스트 에포트). 실패해도 서비스는 계속된다."""
-    records = list(STATE["by_id"].values())
-    store.save_payload(records, STATE["filename"], STATE["updated_at"])
+    st = STATE[survey]
+    records = list(st["by_id"].values())
+    store.save_payload(records, st["filename"], st["updated_at"], survey=survey)
 
 
-def _ensure_loaded():
+def _ensure_loaded(survey):
     """첫 요청 시 Gist 에서 1회 복원한다."""
-    if STATE["loaded"]:
+    st = STATE[survey]
+    if st["loaded"]:
         return
-    with _LOCK:
-        if STATE["loaded"]:
+    with _LOCKS[survey]:
+        if st["loaded"]:
             return
-        payload = store.load_payload()
+        payload = store.load_payload(survey=survey)
         if payload and payload.get("records"):
             by_id = {}
             for i, rec in enumerate(payload["records"]):
                 rid = str(rec.get(RID_KEY) or f"row-{i}")
                 rec[RID_KEY] = rid
                 by_id[rid] = rec
-            STATE["by_id"] = by_id
-            STATE["filename"] = payload.get("filename")
-            _recompute_locked()
-        STATE["loaded"] = True
+            st["by_id"] = by_id
+            st["filename"] = payload.get("filename")
+            _recompute_locked(survey)
+        st["loaded"] = True
 
 
-def _refresh_from_graph():
-    """SharePoint 리스트를 Graph 로 읽어 STATE 를 갱신한다(네트워크는 _LOCK 밖에서)."""
-    records, list_name = graph.fetch_records()  # 느릴 수 있음 → 잠금 밖에서 수행
+def _refresh_from_graph(survey):
+    """SharePoint 리스트를 Graph 로 읽어 STATE[survey] 를 갱신한다(네트워크는 락 밖에서)."""
+    records, list_name = graph.fetch_records(survey=survey)  # 느릴 수 있음 → 잠금 밖에서 수행
     by_id = {}
     for i, rec in enumerate(records):
         rid = str(rec.get(RID_KEY) or f"row-{i}")
         rec[RID_KEY] = rid
         by_id[rid] = rec
-    with _LOCK:
-        prev = STATE["version"]
-        STATE["by_id"] = by_id
+    st = STATE[survey]
+    with _LOCKS[survey]:
+        prev = st["version"]
+        st["by_id"] = by_id
         if list_name:
-            STATE["filename"] = list_name
-        _recompute_locked()
-        if STATE["version"] != prev:      # 실제 변경이 있을 때만 Gist 캐시 갱신
-            _persist_locked()
+            st["filename"] = list_name
+        _recompute_locked(survey)
+        if st["version"] != prev:      # 실제 변경이 있을 때만 Gist 캐시 갱신
+            _persist_locked(survey)
 
 
-def _ensure_fresh():
+def _ensure_fresh(survey):
     """콜드스타트 로드 + TTL 경과 시 SharePoint 재조회. 실패해도 캐시를 계속 서빙."""
-    _ensure_loaded()
-    if time.time() - STATE["last_fetch"] < GRAPH_TTL:
+    _ensure_loaded(survey)
+    st = STATE[survey]
+    if time.time() - st["last_fetch"] < GRAPH_TTL:
         return
-    if not _FETCH_LOCK.acquire(blocking=False):
+    if not _FETCH_LOCKS[survey].acquire(blocking=False):
         return  # 다른 요청이 이미 갱신 중 → 캐시로 응답
     try:
-        STATE["last_fetch"] = time.time()  # 실패해도 TTL 동안 재시도 안 함(쿨다운)
-        _refresh_from_graph()
+        st["last_fetch"] = time.time()  # 실패해도 TTL 동안 재시도 안 함(쿨다운)
+        _refresh_from_graph(survey)
     except Exception:  # noqa: BLE001 — 토큰만료/네트워크 등은 캐시로 폴백
         pass
     finally:
-        _FETCH_LOCK.release()
+        _FETCH_LOCKS[survey].release()
 
 
 @app.on_event("startup")
 def _startup():
     # 콜드스타트 시 Gist 캐시 복원 (실패해도 무시 — 첫 Graph 조회로 채워진다)
-    try:
-        _ensure_loaded()
-    except Exception:  # noqa: BLE001
-        STATE["loaded"] = True
+    for survey in SURVEYS:
+        try:
+            _ensure_loaded(survey)
+        except Exception:  # noqa: BLE001
+            STATE[survey]["loaded"] = True
 
 
 # ---------------------------------------------------------------------------
@@ -183,29 +203,33 @@ def health():
 # 상태 / 대시보드 조회 (전역)
 # ---------------------------------------------------------------------------
 @app.get("/api/status")
-def status():
-    _ensure_fresh()
-    if STATE["df"] is None:
-        return {"has_data": False, "filename": None, "courses": [], "version": STATE["version"]}
+def status(survey: str = Query("training")):
+    survey = _parse_survey(survey)
+    _ensure_fresh(survey)
+    st = STATE[survey]
+    if st["df"] is None:
+        return {"has_data": False, "filename": None, "courses": [], "version": st["version"]}
     return {
         "has_data": True,
-        "filename": STATE["filename"],
-        "rows": int(len(STATE["df"])),
-        "courses": analyzer.get_courses(STATE["df"]),
-        "version": STATE["version"],          # 프론트 폴링이 이 값 변화를 감지해 재로드
-        "updated_at": STATE["updated_at"],
+        "filename": st["filename"],
+        "rows": int(len(st["df"])),
+        "courses": analyzer.get_courses(st["df"]),
+        "version": st["version"],          # 프론트 폴링이 이 값 변화를 감지해 재로드
+        "updated_at": st["updated_at"],
     }
 
 
 @app.get("/api/dashboard")
-def dashboard(course: list[str] = Query(default=["전체"])):
+def dashboard(survey: str = Query("training"), course: list[str] = Query(default=["전체"])):
     # course 파라미터를 여러 개 받을 수 있음(?course=A&course=B) → 합산 평균
-    _ensure_fresh()
-    if STATE["df"] is None:
+    survey = _parse_survey(survey)
+    _ensure_fresh(survey)
+    st = STATE[survey]
+    if st["df"] is None:
         raise HTTPException(404, "수집된 데이터가 없습니다.")
-    data = analyzer.analyze(STATE["df"], courses=course, filename=STATE["filename"])
-    data["ai_analysis"] = STATE["ai"]
-    data["version"] = STATE["version"]
+    data = analyzer.analyze(st["df"], courses=course, filename=st["filename"], survey=survey)
+    data["ai_analysis"] = st["ai"]
+    data["version"] = st["version"]
     return data
 
 
@@ -222,10 +246,11 @@ def _check_secret(request: Request):
 
 
 @app.post("/webhook/forms")
-async def webhook_forms(request: Request):
+async def webhook_forms(request: Request, survey: str = Query("training")):
     """
     Power Automate 가 새 응답 제출 시 호출.
 
+    쿼리: ?survey=training(기본)|support
     헤더:  X-Webhook-Secret: <WEBHOOK_SECRET>
     본문(둘 중 하나):
       1) 응답 1건 upsert:
@@ -234,6 +259,7 @@ async def webhook_forms(request: Request):
       2) 전체 교체(복구/일괄):
          { "records": [ { "<질문 전문>": <답>, ... }, ... ], "filename": "<선택>" }
     """
+    survey = _parse_survey(survey)
     _check_secret(request)
     try:
         body = await request.json()
@@ -243,18 +269,19 @@ async def webhook_forms(request: Request):
     if not isinstance(body, dict):
         raise HTTPException(400, "본문은 JSON 객체여야 합니다.")
 
-    with _LOCK:
+    st = STATE[survey]
+    with _LOCKS[survey]:
         # --- 1) 단건 upsert ---
         if isinstance(body.get("record"), dict):
             rid = str(body.get("id") or "").strip()
             if not rid:
                 # 응답ID 가 없으면 안전하게 자동 증가 키 부여(중복 제거는 불가)
-                rid = f"auto-{len(STATE['by_id']) + 1}-{int(time.time())}"
+                rid = f"auto-{len(st['by_id']) + 1}-{int(time.time())}"
             rec = dict(body["record"])
             rec[RID_KEY] = rid
-            STATE["by_id"][rid] = rec
+            st["by_id"][rid] = rec
             if body.get("filename"):
-                STATE["filename"] = str(body["filename"])
+                st["filename"] = str(body["filename"])
             mode, count = "upsert", 1
 
         # --- 2) 전체 교체 ---
@@ -267,20 +294,20 @@ async def webhook_forms(request: Request):
                 rid = str(rec.get(RID_KEY) or rec.get("id") or f"row-{i}")
                 rec[RID_KEY] = rid
                 by_id[rid] = rec
-            STATE["by_id"] = by_id
+            st["by_id"] = by_id
             if body.get("filename"):
-                STATE["filename"] = str(body["filename"])
+                st["filename"] = str(body["filename"])
             mode, count = "replace", len(by_id)
 
         else:
             raise HTTPException(400, "본문에 'record' 또는 'records' 가 필요합니다.")
 
-        if STATE["filename"] is None:
-            STATE["filename"] = "Microsoft Forms 응답"
-        _recompute_locked()
-        _persist_locked()
-        total = len(STATE["by_id"])
-        version = STATE["version"]
+        if st["filename"] is None:
+            st["filename"] = "Microsoft Forms 응답"
+        _recompute_locked(survey)
+        _persist_locked(survey)
+        total = len(st["by_id"])
+        version = st["version"]
 
     return {"ok": True, "mode": mode, "received": count, "total": total, "version": version}
 
@@ -289,7 +316,8 @@ async def webhook_forms(request: Request):
 # 수동 업로드 (백업/복구용) — 전역 상태 전체 교체
 # ---------------------------------------------------------------------------
 @app.post("/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload(file: UploadFile = File(...), survey: str = Query("training")):
+    survey = _parse_survey(survey)
     if not file.filename.lower().endswith((".xlsx", ".xls")):
         raise HTTPException(400, "Excel 파일(.xlsx/.xls)만 업로드할 수 있습니다.")
     content = await file.read()
@@ -309,13 +337,14 @@ async def upload(file: UploadFile = File(...)):
         rec[RID_KEY] = rid
         by_id[rid] = rec
 
-    with _LOCK:
-        STATE["by_id"] = by_id
-        STATE["filename"] = file.filename
-        _recompute_locked()
-        _persist_locked()
-        rows = int(len(STATE["df"])) if STATE["df"] is not None else 0
-        courses = analyzer.get_courses(STATE["df"]) if STATE["df"] is not None else []
+    st = STATE[survey]
+    with _LOCKS[survey]:
+        st["by_id"] = by_id
+        st["filename"] = file.filename
+        _recompute_locked(survey)
+        _persist_locked(survey)
+        rows = int(len(st["df"])) if st["df"] is not None else 0
+        courses = analyzer.get_courses(st["df"]) if st["df"] is not None else []
 
     return {"ok": True, "filename": file.filename, "rows": rows, "courses": courses}
 

@@ -22,5 +22,6 @@ Thumbs.db
 
 # 테스트 / 업로드 데이터
 test_survey.xlsx
+test_survey_support.xlsx
 uploads/
 *.tmp

@@ -2,16 +2,19 @@
 inspect_list.py — SharePoint 리스트의 실제 컬럼(내부이름↔표시이름)과 샘플을 출력.
 
 bootstrap_login.py 로 로그인한 뒤 실행:
-    venv/Scripts/python.exe inspect_list.py
+    venv/Scripts/python.exe inspect_list.py            # 훈련비과정(기본)
+    venv/Scripts/python.exe inspect_list.py support     # 지원비과정
 출력된 표시이름을 보고 graph.COLUMN_ALIAS 보정 여부를 결정한다.
 """
 import json
+import sys
 
 import graph
 
 
 def main():
-    info = graph.inspect_columns()
+    survey = sys.argv[1] if len(sys.argv) > 1 else "training"
+    info = graph.inspect_columns(survey)
     print(f"리스트: {info['list_name']}")
     print(f"GUID  : {info['list_id']}   ← config.py SHAREPOINT_LIST_ID 에 넣으면 가장 안정적\n")
     print("== 컬럼 (내부이름 → 표시이름) ==")

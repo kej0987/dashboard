@@ -24,7 +24,8 @@ except ModuleNotFoundError:
 
 
 GITHUB_API = "https://api.github.com"
-DATA_FILE = "data.json"
+DATA_FILE = "data.json"                  # 훈련비과정(기본)
+DATA_FILE_SUPPORT = "data_support.json"  # 지원비과정
 TOKEN_FILE = "token_cache.json"
 TIMEOUT = 20
 
@@ -90,9 +91,10 @@ def write_gist_file(filename, content):
 # ---------------------------------------------------------------------------
 # 대시보드 데이터 캐시
 # ---------------------------------------------------------------------------
-def load_payload():
-    """data.json 을 dict 로 반환. 없으면 None."""
-    content = read_gist_file(DATA_FILE)
+def load_payload(survey="training"):
+    """data.json(survey별) 을 dict 로 반환. 없으면 None."""
+    fname = DATA_FILE_SUPPORT if survey == "support" else DATA_FILE
+    content = read_gist_file(fname)
     if not content:
         return None
     try:
@@ -106,15 +108,16 @@ def load_payload():
     return None
 
 
-def save_payload(records, filename, updated_at):
-    """records 를 data.json 으로 저장. 성공 시 True."""
+def save_payload(records, filename, updated_at, survey="training"):
+    """records 를 data.json(survey별) 으로 저장. 성공 시 True."""
+    fname = DATA_FILE_SUPPORT if survey == "support" else DATA_FILE
     payload = {
         "filename": filename or "survey.xlsx",
         "updated_at": updated_at,
         "rows": len(records),
         "records": records,
     }
-    return write_gist_file(DATA_FILE, json.dumps(payload, ensure_ascii=False, indent=2))
+    return write_gist_file(fname, json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 # ---------------------------------------------------------------------------
