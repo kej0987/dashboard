@@ -4,23 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>엘리스랩 만족도 대시보드</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=20260918" />
+  <link rel="stylesheet" href="/static/css/style.css?v=20260918b" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <!-- 글래스모피즘 아이콘용 그라데이션 정의 -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#aeb9ff" />
-        <stop offset="55%" stop-color="#6f78f0" />
-        <stop offset="100%" stop-color="#8b5cf6" />
-      </linearGradient>
-    </defs>
-  </svg>
-
   <div class="layout">
     <!-- 사이드바 -->
     <aside class="sidebar">
@@ -54,14 +43,14 @@
           <p id="subtitle">데이터를 불러오는 중…</p>
         </div>
         <div class="topbar-actions">
-          <span class="auto-badge">🔄 실시간 자동 갱신</span>
+          <span class="auto-badge"><span class="live-dot"></span>실시간 자동 갱신</span>
         </div>
       </header>
 
       <!-- 로딩/빈 상태 -->
       <section id="empty-state" class="empty-state">
         <div class="empty-card">
-          <div class="empty-icon">📊</div>
+          <div class="spinner empty-spinner"></div>
           <h2>데이터를 불러오는 중입니다…</h2>
           <p>설문 응답이 들어오면 대시보드가 자동으로 갱신됩니다.</p>
         </div>
@@ -129,7 +118,7 @@
 
         <!-- 종합 분석 요약 -->
         <section id="sec-overview" class="section">
-          <h2 class="section-title" data-icon="overview">종합 분석 요약 <span class="card-tag" id="overview-tag"></span></h2>
+          <h2 class="section-title">종합 분석 요약 <span class="card-tag" id="overview-tag"></span></h2>
           <div class="card hidden" id="overview-card">
             <p class="overview-text" id="overview-text"></p>
             <p class="card-hint" id="overview-hint">전체 데이터 기준 요약입니다.</p>
@@ -138,13 +127,13 @@
 
         <!-- 카테고리별 평균 -->
         <section id="sec-category" class="section">
-          <h2 class="section-title" data-icon="category">카테고리별 평균</h2>
+          <h2 class="section-title">카테고리별 평균</h2>
           <div class="category-grid" id="category-grid"></div>
         </section>
 
         <!-- 항목별 분석 -->
         <section id="sec-items" class="section">
-          <h2 class="section-title" data-icon="items">항목별 분석</h2>
+          <h2 class="section-title">항목별 분석</h2>
           <div class="chart-row">
             <div class="card chart-card">
               <h3>항목별 평균 점수</h3>
@@ -164,7 +153,7 @@
 
         <!-- 강좌별 순위 -->
         <section id="sec-ranking" class="section">
-          <h2 class="section-title" data-icon="ranking">강좌별 종합 만족도 순위</h2>
+          <h2 class="section-title">강좌별 종합 만족도 순위</h2>
           <div class="card">
             <div class="ranking-list" id="ranking-list"></div>
           </div>
@@ -172,17 +161,17 @@
 
         <!-- 주관식 키워드 -->
         <section id="sec-keywords" class="section">
-          <h2 class="section-title" data-icon="keywords">주관식 키워드 분석 <span class="card-tag" id="kw-engine"></span></h2>
+          <h2 class="section-title">주관식 키워드 분석 <span class="card-tag" id="kw-engine"></span></h2>
           <div class="card">
             <div class="ai-summary" id="ai-summary"></div>
             <p class="card-hint">자주 언급된 단어를 빈도 크기로 표시합니다 (한국어 불용어 제거 · 복합어 우선).</p>
             <div class="kw-cols" id="kw-cols">
               <div class="kw-col pos">
-                <h3>👍 긍정 키워드 <span class="kw-sub">도움됨 · 좋았음</span></h3>
+                <h3>긍정 키워드 <span class="kw-sub">도움됨 · 좋았음</span></h3>
                 <div class="tagcloud pos" id="kw-positive"></div>
               </div>
               <div class="kw-col neg">
-                <h3>🔧 개선 키워드 <span class="kw-sub">아쉬움 · 요청</span></h3>
+                <h3>개선 키워드 <span class="kw-sub">아쉬움 · 요청</span></h3>
                 <div class="tagcloud neg" id="kw-negative"></div>
               </div>
             </div>
@@ -196,7 +185,7 @@
 
         <!-- 소식 · 희망과정 -->
         <section id="sec-extra" class="section">
-          <h2 class="section-title" data-icon="extra">교육 소식 수신 · 희망 훈련 과정</h2>
+          <h2 class="section-title">교육 소식 수신 · 희망 훈련 과정</h2>
           <div class="chart-row" id="extra-row">
             <div class="card chart-card" id="news-card">
               <h3>교육 소식 수신 동의</h3>
@@ -224,6 +213,6 @@
     <p id="overlay-text">데이터를 분석하는 중...</p>
   </div>
 
-  <script src="/static/js/dashboard.js?v=20260918"></script>
+  <script src="/static/js/dashboard.js?v=20260918b"></script>
 </body>
 </html>

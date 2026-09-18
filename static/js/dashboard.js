@@ -29,9 +29,9 @@ function scoreColor(v) {
 }
 
 // 순위 강조 색상 (금·은·동) — 항목별 평균 / 종합 만족도 순위 상위 3개 구분
+// (배지 자체가 이미 금/은/동 색으로 순위를 나타내므로 별도 메달 이모지는 쓰지 않는다)
 const RANK_COLORS = ["#f5a623", "#9aa3b2", "#c77b30"]; // 1위·2위·3위
 const RANK_REST = "#b9b2f0"; // 4위 이하 (옅은 퍼플)
-const RANK_MEDALS = ["🥇", "🥈", "🥉"];
 function rankColor(idx) { return idx < 3 ? RANK_COLORS[idx] : RANK_REST; }
 
 // 리스트의 상위 N개만 노출하고 나머지는 "더보기" 버튼으로 토글한다.
@@ -67,24 +67,24 @@ function applyCollapse(listEl, visible) {
   listEl.insertAdjacentElement("afterend", btn);
 }
 
-// 글래스모피즘 SVG 아이콘 (그라데이션 url(#glassGrad) 은 HTML defs 에 정의)
-const ICONS = {
-  category: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><path d="M5 12.5 12.5 5H19a1 1 0 0 1 1 1v6.5L12.5 20a2 2 0 0 1-2.8 0L5 15.3a2 2 0 0 1 0-2.8z" fill="url(#glassGrad)" opacity="0.9"/><circle cx="15.4" cy="8.6" r="1.4" fill="#fff" opacity="0.9"/></svg>`,
-  items: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><rect x="4" y="11" width="4.2" height="9" rx="1.6" fill="url(#glassGrad)" opacity="0.5"/><rect x="9.9" y="7" width="4.2" height="13" rx="1.6" fill="url(#glassGrad)" opacity="0.78"/><rect x="15.8" y="4" width="4.2" height="16" rx="1.6" fill="url(#glassGrad)" opacity="1"/></svg>`,
-  ranking: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v4a5 5 0 0 1-10 0z" fill="url(#glassGrad)" opacity="0.92"/><path d="M5 5h2v2.4A2.5 2.5 0 0 1 5 5zM17 5h2a2.5 2.5 0 0 1-2 2.4z" fill="url(#glassGrad)" opacity="0.55"/><rect x="11" y="12" width="2" height="3" fill="url(#glassGrad)" opacity="0.9"/><rect x="9.4" y="15.3" width="5.2" height="2.2" rx="1" fill="url(#glassGrad)" opacity="0.7"/><rect x="7.8" y="17.8" width="8.4" height="2.5" rx="1.2" fill="url(#glassGrad)" opacity="0.95"/></svg>`,
-  keywords: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><rect x="11" y="10" width="10" height="8" rx="3.5" fill="url(#glassGrad)" opacity="0.33"/><rect x="3" y="3" width="13" height="10" rx="4" fill="url(#glassGrad)" opacity="0.92"/><path d="M7 12.5v3.2l3.4-3.2z" fill="url(#glassGrad)" opacity="0.92"/><circle cx="7" cy="8" r="1.1" fill="#fff"/><circle cx="9.6" cy="8" r="1.1" fill="#fff"/><circle cx="12.2" cy="8" r="1.1" fill="#fff"/></svg>`,
-  extra: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><path d="M6 16v-6a6 6 0 0 1 12 0v6l1.6 2.2a.6.6 0 0 1-.5 1H4.9a.6.6 0 0 1-.5-1z" fill="url(#glassGrad)" opacity="0.9"/><path d="M9.5 19.6a2.5 2.5 0 0 0 5 0z" fill="url(#glassGrad)" opacity="0.95"/><circle cx="18" cy="6" r="2.8" fill="url(#glassGrad)" opacity="0.45"/></svg>`,
-  compose: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><rect x="7" y="4" width="13" height="16" rx="3" fill="url(#glassGrad)" opacity="0.33"/><rect x="4" y="6" width="13" height="14" rx="3" fill="url(#glassGrad)" opacity="0.92"/><path d="M7 11h7M7 14.5h7" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/></svg>`,
-  instructor: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><circle cx="15.5" cy="8.5" r="4" fill="url(#glassGrad)" opacity="0.33"/><circle cx="11.5" cy="8" r="3.7" fill="url(#glassGrad)" opacity="0.95"/><path d="M4.5 20c0-3.9 3.1-6.6 7-6.6s7 2.7 7 6.6z" fill="url(#glassGrad)" opacity="0.9"/></svg>`,
-  effect: `<svg class="gicon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="url(#glassGrad)" opacity="0.26"/><circle cx="12" cy="12" r="5.6" fill="url(#glassGrad)" opacity="0.6"/><circle cx="12" cy="12" r="2.4" fill="url(#glassGrad)" opacity="1"/></svg>`,
-};
-ICONS.overview = ICONS.effect;  // 종합 분석 요약 섹션도 같은 아이콘 재사용
-
-// 카테고리 아이콘/설명
+// 카테고리 카드 아이콘 — KPI 카드와 같은 플랫 원형 스타일(장식용 그라데이션 없음).
+// "강사 역량"/"교육 효과"는 KPI 카드와 완전히 같은 아이콘·색을 재사용해 두 섹션이 같은 의미임을 알 수 있게 한다.
 const CAT_META = {
-  "교육 구성": { icon: ICONS.compose, desc: "내용 · 자료 · 환경 · 시간 · 운영" },
-  "강사 역량": { icon: ICONS.instructor, desc: "전문성 · 전달력 · 질문응답 · 참여" },
-  "교육 효과": { icon: ICONS.effect, desc: "지식습득 · 목표달성 · 실무적용" },
+  "교육 구성": {
+    colorClass: "ico-purple",
+    icon: `<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="2.5" stroke="#fff" stroke-width="1.8"/><path d="M8.5 9h7M8.5 12.5h7M8.5 16h4.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    desc: "내용 · 자료 · 환경 · 시간 · 운영",
+  },
+  "강사 역량": {
+    colorClass: "ico-blue",
+    icon: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.8" fill="#fff"/><path d="M5 20c0-3.9 3.1-6.2 7-6.2s7 2.3 7 6.2z" fill="#fff"/></svg>`,
+    desc: "전문성 · 전달력 · 질문응답 · 참여",
+  },
+  "교육 효과": {
+    colorClass: "ico-orange",
+    icon: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="4.5" stroke="#fff" stroke-width="2"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg>`,
+    desc: "지식습득 · 목표달성 · 실무적용",
+  },
 };
 
 // 점수 분포에 맞춰 차트 축 최소값을 자동 계산(미세한 차이를 강조)
@@ -287,11 +287,11 @@ function renderCategories(cats) {
   grid.innerHTML = "";
   cats.forEach((c) => {
     const pct = Math.max(0, Math.min(100, (c.score / 5) * 100));
-    const m = CAT_META[c.name] || { icon: ICONS.category, desc: "" };
+    const m = CAT_META[c.name] || { colorClass: "ico-purple", icon: "", desc: "" };
     const el = document.createElement("div");
     el.className = "cat-card";
     el.innerHTML = `
-      <div class="cat-icon">${m.icon}</div>
+      <div class="cat-icon ${m.colorClass}">${m.icon}</div>
       <div class="cat-name">${c.name}</div>
       <div class="cat-score">${c.score.toFixed(2)}<small> /5</small></div>
       <div class="cat-desc">${m.desc}</div>
@@ -378,12 +378,10 @@ function renderItems(items, categories) {
   const hi = sorted[0], low = sorted[sorted.length - 1];
   $("#highlight-row").innerHTML = `
     <div class="highlight best">
-      <span class="h-badge">🏆</span>
       <div><div class="h-label">가장 높은 항목</div><div class="h-name">${hi.name}</div></div>
       <span class="h-score">${hi.score.toFixed(2)}</span>
     </div>
     <div class="highlight worst">
-      <span class="h-badge">📌</span>
       <div><div class="h-label">개선이 필요한 항목</div><div class="h-name">${low.name}</div></div>
       <span class="h-score">${low.score.toFixed(2)}</span>
     </div>`;
@@ -395,7 +393,6 @@ function renderItems(items, categories) {
     const pct = Math.max(2, Math.min(100, (i.score / 5) * 100));
     const catTag = i.category ? i.category.split(" ").pop() : "";
     const isTop = idx < 3;
-    const medal = isTop ? RANK_MEDALS[idx] + " " : "";
     const barColor = isTop ? RANK_COLORS[idx] : RANK_REST;
     const scoreCol = isTop ? RANK_COLORS[idx] : "var(--text)";
     const row = document.createElement("div");
@@ -403,7 +400,7 @@ function renderItems(items, categories) {
     row.innerHTML = `
       <div class="item-code">${catTag}</div>
       <div>
-        <div class="item-label">${medal}${i.name}</div>
+        <div class="item-label">${i.name}</div>
         <div class="item-cat">${i.category || ""}</div>
       </div>
       <div class="item-bar"><span style="width:${pct}%;background:${barColor}"></span></div>
@@ -467,7 +464,10 @@ function renderKeywords(keywords, ai) {
 
   if (summaryText) {
     summary.style.display = "flex";
-    summary.innerHTML = `<span class="ai-summary-icon">📝</span><p>${summaryText}</p>`;
+    summary.innerHTML = "";
+    const p = document.createElement("p");
+    p.textContent = summaryText;
+    summary.appendChild(p);
   } else {
     summary.style.display = "none";
   }
@@ -635,12 +635,6 @@ function loadStatusAndDashboard() {
 
 /* ---------- 이벤트 ---------- */
 function init() {
-  // 섹션 제목에 글래스모피즘 아이콘 주입
-  document.querySelectorAll(".section-title[data-icon]").forEach((h) => {
-    const name = h.getAttribute("data-icon");
-    if (ICONS[name]) h.insertAdjacentHTML("afterbegin", ICONS[name]);
-  });
-
   // 업로드 UI 제거(자동 모드). 파일 입력이 있으면만 바인딩(하위호환).
   const fi = $("#file-input");
   if (fi) fi.addEventListener("change", (e) => uploadFile(e.target.files[0]));

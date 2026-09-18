@@ -17,7 +17,8 @@
   --bg: #F8F9FC;
   --card: #FFFFFF;
 
-  --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);         /* 기본(카드 등 정지 상태) */
+  --shadow-active: 0 6px 16px rgba(91, 78, 232, 0.30); /* 활성/강조 상태(보라 기준) */
   --radius: 16px;
   --gap: 24px;
 
@@ -73,7 +74,7 @@ body {
   transition: background .15s, color .15s;
 }
 .tab-btn:hover { background: var(--primary-soft); color: var(--primary); }
-.tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 6px 16px rgba(91, 78, 232, 0.30); }
+.tab-btn.active { background: var(--primary); color: #fff; box-shadow: var(--shadow-active); }
 /* 지원비과정 탭은 훈련비(보라)와 구분되게 오렌지로 강조 — 탭 전환이 눈에 띄도록 */
 .tab-btn[data-survey="support"].active { background: var(--orange); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35); }
 
@@ -87,7 +88,7 @@ body {
 .nav-item:hover { background: var(--primary-soft); color: var(--primary); }
 .nav-item.active {
   background: var(--primary); color: #fff;
-  box-shadow: 0 6px 16px rgba(91, 78, 232, 0.30);
+  box-shadow: var(--shadow-active);
 }
 .nav-item.active:hover { background: var(--primary-dark); color: #fff; }
 
@@ -144,12 +145,24 @@ body {
 }
 .other-count { font-weight: 700; color: var(--primary); font-size: 12px; }
 
-/* 자동 갱신 배지 */
+/* 자동 갱신 배지 — 이모지 대신 점 인디케이터로 "실시간" 의미 전달 */
 .auto-badge {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: 8px;
   background: rgba(34, 197, 94, 0.12); color: #16a34a;
   padding: 8px 14px; border-radius: 999px;
   font-size: 13px; font-weight: 700;
+}
+.auto-badge .live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #16a34a; flex-shrink: 0;
+  animation: livePulse 2s ease-out infinite;
+}
+@keyframes livePulse {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45); }
+  70% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auto-badge .live-dot { animation: none; }
 }
 
 /* 업로드 버튼 — 보라색 solid */
@@ -172,7 +185,7 @@ body {
   padding: 56px 48px; text-align: center; max-width: 460px;
   box-shadow: var(--shadow);
 }
-.empty-icon { font-size: 52px; margin-bottom: 16px; }
+.empty-spinner { margin: 0 auto 20px; }
 .empty-card h2 { font-size: 20px; margin-bottom: 10px; font-weight: 800; }
 .empty-card p { color: var(--text-mut); font-size: 14px; line-height: 1.6; margin-bottom: 26px; }
 
@@ -184,10 +197,6 @@ body {
   font-size: 20px; font-weight: 800; margin-bottom: 18px;
   letter-spacing: -0.01em; color: var(--text);
 }
-
-/* 글래스모피즘 아이콘 */
-.gicon { width: 24px; height: 24px; flex-shrink: 0; display: inline-block; vertical-align: middle; }
-.section-title .gicon { width: 26px; height: 26px; }
 
 /* ---------- 강좌 필터 ---------- */
 .filter-section {
@@ -259,8 +268,12 @@ body {
   border-radius: var(--radius); padding: 26px 24px; box-shadow: var(--shadow);
   text-align: center;
 }
-.cat-card .cat-icon { margin-bottom: 10px; height: 48px; display: flex; align-items: center; justify-content: center; }
-.cat-card .cat-icon .gicon { width: 48px; height: 48px; }
+/* KPI 카드와 같은 톤(보라/파랑/주황)의 플랫 원형 아이콘 — 장식용 그라데이션 대신 의미색만 사용 */
+.cat-card .cat-icon {
+  margin: 0 auto 14px; width: 52px; height: 52px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.cat-card .cat-icon svg { width: 26px; height: 26px; }
 .cat-card .cat-name { font-size: 14px; font-weight: 700; color: var(--text); }
 .cat-card .cat-score { font-size: 42px; font-weight: 900; color: var(--primary); margin: 6px 0 4px; line-height: 1; }
 .cat-card .cat-score small { font-size: 17px; font-weight: 700; color: var(--text-mut); }
@@ -281,9 +294,8 @@ body {
   display: flex; align-items: center; gap: 14px;
   border-radius: 14px; padding: 16px 18px; border: 1px solid var(--border);
 }
-.highlight.best { background: #F0FDF4; border-color: #BBF7D0; }
-.highlight.worst { background: #FFF7ED; border-color: #FED7AA; }
-.highlight .h-badge { font-size: 22px; }
+.highlight.best { background: #F0FDF4; border-color: #BBF7D0; border-left: 4px solid #16A34A; }
+.highlight.worst { background: #FFF7ED; border-color: #FED7AA; border-left: 4px solid #EA580C; }
 .highlight .h-label { font-size: 12px; color: var(--text-mut); font-weight: 600; }
 .highlight .h-name { font-size: 15px; font-weight: 700; margin-top: 2px; }
 .highlight .h-score { font-size: 22px; font-weight: 900; margin-left: auto; }
@@ -371,7 +383,6 @@ body {
   background: var(--primary-soft); border: 1px solid var(--primary-light);
   border-radius: 14px; padding: 16px 18px; margin-bottom: 20px;
 }
-.ai-summary .ai-summary-icon { font-size: 20px; line-height: 1.4; }
 .ai-summary p { font-size: 14px; line-height: 1.65; color: var(--text); margin: 0; }
 
 /* 종합 분석 요약 카드 (KPI 바로 아래) */
@@ -427,6 +438,9 @@ body {
   animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.4s; }
+}
 
 /* 토스트 */
 .toast {

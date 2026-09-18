@@ -407,13 +407,13 @@ def overview_summary(kpi, categories, items, course_ranking, keywords=None):
     neg_words = [k["word"] for k in (keywords or {}).get("negative", [])[:3]]
     pos_words = [k["word"] for k in (keywords or {}).get("positive", [])[:2]]
 
-    good = f"👍 '{best_item['name']}'이 {best_item['score']:.2f}점으로 가장 높게 평가되었습니다"
+    good = f"잘하고 있는 것: '{best_item['name']}'이 {best_item['score']:.2f}점으로 가장 높게 평가되었습니다"
     if pos_words:
         good += f" ('{', '.join(pos_words)}' 언급 다수)."
     else:
         good += "."
 
-    bad = f"⚠️ '{worst_item['name']}'이 {worst_item['score']:.2f}점으로 가장 낮아 개선이 시급합니다"
+    bad = f"문제가 되는 것: '{worst_item['name']}'이 {worst_item['score']:.2f}점으로 가장 낮아 개선이 시급합니다"
     if neg_words:
         bad += f" (주관식에서 '{', '.join(neg_words)}' 관련 언급이 반복됨)."
     else:
@@ -422,11 +422,11 @@ def overview_summary(kpi, categories, items, course_ranking, keywords=None):
     if course_ranking and len(course_ranking) > 1:
         low_course = min(course_ranking, key=lambda c: c["score"])
         action = (
-            f"✅ 다음 기수에서는 '{worst_item['name']}' 항목을 우선 점검하고, "
+            f"다음에 할 일: 다음 기수에서는 '{worst_item['name']}' 항목을 우선 점검하고, "
             f"특히 '{low_course['course']}'({low_course['score']:.2f}점)의 운영 방식을 함께 검토해 보세요."
         )
     else:
-        action = f"✅ 다음 기수에서는 '{worst_item['name']}' 항목을 우선 점검해 보세요."
+        action = f"다음에 할 일: 다음 기수에서는 '{worst_item['name']}' 항목을 우선 점검해 보세요."
 
     return "\n".join([good, bad, action])
 
