@@ -92,6 +92,13 @@ body {
 }
 .nav-item.active:hover { background: var(--primary-dark); color: #fff; }
 
+/* 지원비과정 탭이 활성일 땐 사이드바 강조색도 오렌지로(탭 색과 통일) */
+body.theme-support .nav-item:hover { background: #FFF3E0; color: var(--orange); }
+body.theme-support .nav-item.active {
+  background: var(--orange); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.30);
+}
+body.theme-support .nav-item.active:hover { background: #D97706; }
+
 .sidebar-footer {
   padding: 16px 22px; border-top: 1px solid var(--border);
   font-size: 12px; color: var(--text-mut);
@@ -282,7 +289,7 @@ body {
 .progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--primary), #8b7dff); border-radius: 99px; }
 
 /* ---------- 차트 ---------- */
-.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); align-items: stretch; }
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); align-items: stretch; margin-bottom: var(--gap); }
 .chart-card { margin-bottom: 0; display: flex; flex-direction: column; }
 .chart-box { position: relative; height: 360px; flex: 1; }
 .chart-box.small { height: 300px; }
@@ -294,8 +301,8 @@ body {
   display: flex; align-items: center; gap: 14px;
   border-radius: 14px; padding: 16px 18px; border: 1px solid var(--border);
 }
-.highlight.best { background: #F0FDF4; border-color: #BBF7D0; border-left: 4px solid #16A34A; }
-.highlight.worst { background: #FFF7ED; border-color: #FED7AA; border-left: 4px solid #EA580C; }
+.highlight.best { background: #F0FDF4; border-color: #BBF7D0; }
+.highlight.worst { background: #FFF7ED; border-color: #FED7AA; }
 .highlight .h-label { font-size: 12px; color: var(--text-mut); font-weight: 600; }
 .highlight .h-name { font-size: 15px; font-weight: 700; margin-top: 2px; }
 .highlight .h-score { font-size: 22px; font-weight: 900; margin-left: auto; }
@@ -386,7 +393,11 @@ body {
 .ai-summary p { font-size: 14px; line-height: 1.65; color: var(--text); margin: 0; }
 
 /* 종합 분석 요약 카드 (KPI 바로 아래) */
-.overview-text { font-size: 15px; line-height: 1.9; color: var(--text); margin-bottom: 8px; white-space: pre-line; }
+.overview-body { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.overview-line { font-size: 15px; line-height: 1.7; color: var(--text); }
+.overview-line .ov-good { color: #16A34A; }
+.overview-line .ov-bad { color: #EA580C; }
+.overview-line .ov-action { color: var(--primary); }
 
 /* 주관식 원본 응답 (강좌 필터 시) */
 .raw-response-list { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; }
