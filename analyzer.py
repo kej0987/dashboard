@@ -303,7 +303,8 @@ def analyze_keywords(responses):
 
 
 # 희망 훈련 과정: 객관식 옵션 화이트리스트(차트용). 그 외 값은 "기타 직접입력"으로 분리.
-# 폼 옵션이 바뀌면 이 목록만 갱신하면 된다.
+# 훈련비/지원비 설문의 실제 폼 옵션 문구가 서로 달라 survey별로 따로 둔다.
+# 폼 옵션이 바뀌면 해당 survey의 목록만 갱신하면 된다.
 WISHED_OPTIONS = [
     "인공지능(AI) 실무 활용",
     "업무자동화(RPA 등)",
@@ -315,12 +316,26 @@ WISHED_OPTIONS = [
     "클라우드 기반 개발 환경",
 ]
 
+WISHED_OPTIONS_SUPPORT = [
+    "AI 업무 자동화",
+    "AI 에이전트 제작",
+    "바이브코딩 및 웹서비스 제작",
+    "AI 기반 자료 조사·리서치",
+    "AI 마케팅·콘텐츠 제작",
+    "AI 데이터 분석 및 시각화",
+    "생성형 AI 기초 및 업무 활용",
+    "클라우드 및 개발 환경",
+    "프로젝트 관리 및 협업",
+    "AI 보안·개인정보·저작권",
+]
 
-def wished_breakdown(series, top=10):
+
+def wished_breakdown(series, top=10, survey="training"):
     """희망 과정 응답을 객관식 옵션(options)과 자유입력(other)으로 분리한다.
     - options: 화이트리스트에 해당 → 막대 차트용 (공백 차이 무시 매칭)
     - other:   그 외 자유입력 → 별도 목록 (의미없는 입력은 제외)"""
-    opt_by_norm = {_norm(o): o for o in WISHED_OPTIONS}
+    opts = WISHED_OPTIONS_SUPPORT if survey == "support" else WISHED_OPTIONS
+    opt_by_norm = {_norm(o): o for o in opts}
     options, other = Counter(), Counter()
     for text in series.dropna().astype(str):
         for p in _explode_multi(text):
@@ -492,7 +507,7 @@ def analyze(df, courses=None, filename=None, survey="training"):
         if subj_col else []
     )
     keywords = analyze_keywords(subj_responses)
-    wished = wished_breakdown(sub[wish_col]) if wish_col else {"options": [], "other": []}
+    wished = wished_breakdown(sub[wish_col], survey=survey) if wish_col else {"options": [], "other": []}
     newsletter = newsletter_breakdown(sub[news_col]) if news_col else {"네": 0, "아니오": 0}
 
     # 강좌별 항목 비교 (전체 기준, 카테고리 순 정렬)

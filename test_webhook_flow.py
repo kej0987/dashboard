@@ -38,6 +38,8 @@ _orig_cfg = ai_keywords._cfg
 ai_keywords._cfg = lambda name, default="": "" if name == "ANTHROPIC_API_KEY" else _orig_cfg(name, default)
 
 from fastapi.testclient import TestClient
+import pandas as pd
+import analyzer
 import app as appmod
 
 client = TestClient(appmod.app)
@@ -166,6 +168,14 @@ def main():
     assert kw["positive"] or kw["negative"], "지원비 주관식(보완 문구) 응답이 인식되지 않음"
     print(f"[8] support survey OK (독립 상태 확인, 13개 항목 매핑={len(names)}개, "
           f"주관식 인식={bool(kw['positive'] or kw['negative'])})")
+
+    # 9) 희망 과정 화이트리스트 — 훈련비 옵션으로 지원비 응답을 매칭하면 전부 "기타"로
+    #    빠지는 버그가 있었음(실제 운영 데이터에서 발견). survey별 옵션을 써야 한다.
+    support_wish_answers = pd.Series(["AI 업무 자동화", "AI 에이전트 제작", "이런 옵션은 없음(자유입력)"])
+    result = analyzer.wished_breakdown(support_wish_answers, survey="support")
+    assert {o["course"] for o in result["options"]} == {"AI 업무 자동화", "AI 에이전트 제작"}, result
+    assert {o["text"] for o in result["other"]} == {"이런 옵션은 없음(자유입력)"}, result
+    print(f"[9] wished_breakdown(survey=support) OK (options={len(result['options'])}, other={len(result['other'])})")
 
     print("\n[OK] 전체 통과")
 
