@@ -238,7 +238,7 @@ function render(d) {
 // 종합 분석 요약 — 강좌를 1개만 선택하면 그 강좌 기준, 아니면 전체 데이터 기준.
 // (ANTHROPIC_API_KEY 있으면 AI 요약 / 없으면 자동 요약 문장)
 // 백엔드가 항상 이 3개 라벨로 줄을 시작한다(analyzer.overview_summary / ai_keywords.OVERVIEW_INSTRUCTIONS).
-// 라벨 단어만 색으로 구분해 "잘하는 것/문제/할 일"이 한눈에 스캔되게 한다(박스·이모지 없이 타이포로만).
+// 라벨을 색 박스(뱃지)로 감싸 "잘하는 것/문제/할 일"이 한눈에 구분되게 한다.
 const OVERVIEW_LABELS = [
   { key: "잘하고 있는 것", cls: "ov-good" },
   { key: "문제가 되는 것", cls: "ov-bad" },
@@ -247,13 +247,11 @@ const OVERVIEW_LABELS = [
 
 function renderOverview(o, selected) {
   const card = $("#overview-card");
-  const tag = $("#overview-tag");
   const hint = $("#overview-hint");
   const body = $("#overview-body");
   if (!card || !body) return;
   if (!o || !o.summary) { card.classList.add("hidden"); return; }
   card.classList.remove("hidden");
-  if (tag) tag.textContent = o.engine === "ai" ? "Claude AI 분석" : "자동 요약";
 
   body.innerHTML = "";
   o.summary.split("\n").map((l) => l.trim()).filter(Boolean).forEach((line) => {
@@ -263,9 +261,11 @@ function renderOverview(o, selected) {
     if (match) {
       const label = document.createElement("strong");
       label.className = match.cls;
-      label.textContent = match.key + ":";
+      label.textContent = match.key;
       p.appendChild(label);
-      p.appendChild(document.createTextNode(line.slice(match.key.length + 1)));
+      const text = document.createElement("span");
+      text.textContent = line.slice(match.key.length + 1).trim();
+      p.appendChild(text);
     } else {
       p.textContent = line;
     }
@@ -472,7 +472,6 @@ function normKw(items) {
 }
 
 function renderKeywords(keywords, ai) {
-  const tag = $("#kw-engine");
   const summary = $("#ai-summary");
   const aiValid = ai && !ai.error &&
     ((ai.positive && ai.positive.length) || (ai.negative && ai.negative.length));
@@ -481,11 +480,9 @@ function renderKeywords(keywords, ai) {
   if (aiValid) {
     pos = normKw(ai.positive); neg = normKw(ai.negative);
     summaryText = ai.summary || "";
-    tag.textContent = "Claude AI 분석";
   } else {
     pos = normKw(keywords && keywords.positive); neg = normKw(keywords && keywords.negative);
     summaryText = "";
-    tag.textContent = "규칙 기반 분석";
   }
 
   if (summaryText) {
