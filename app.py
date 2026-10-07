@@ -61,6 +61,7 @@ def _new_state():
         "updated_at": 0,
         "last_fetch": 0,    # 마지막 Graph 조회 시각
         "loaded": False,    # Gist 콜드스타트 로드 완료 여부
+        "fetch_error": None,  # 마지막 Graph 조회 실패 사유(성공 시 None) — /api/status 로 노출
     }
 
 
@@ -216,8 +217,9 @@ def _ensure_fresh(survey):
     try:
         st["last_fetch"] = time.time()  # 실패해도 TTL 동안 재시도 안 함(쿨다운)
         _refresh_from_graph(survey)
-    except Exception:  # noqa: BLE001 — 토큰만료/네트워크 등은 캐시로 폴백
-        pass
+        st["fetch_error"] = None
+    except Exception as e:  # noqa: BLE001 — 토큰만료/네트워크 등은 캐시로 폴백
+        st["fetch_error"] = f"{type(e).__name__}: {e}"
     finally:
         _FETCH_LOCKS[survey].release()
 
@@ -265,6 +267,7 @@ def status(survey: str = Query("training")):
         "courses": analyzer.get_courses(st["df"]),
         "version": st["version"],          # 프론트 폴링이 이 값 변화를 감지해 재로드
         "updated_at": st["updated_at"],
+        "fetch_error": st["fetch_error"],
     }
 
 
