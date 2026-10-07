@@ -235,7 +235,7 @@ function render(d) {
   renderWishedOther(d.wished_other);
 }
 
-// 종합 분석 요약 — 강좌를 1개만 선택하면 그 강좌 기준, 아니면 전체 데이터 기준.
+// 종합 분석 요약 — 강좌를 선택하면 선택한 강좌 기준, 아니면 전체 데이터 기준.
 // (ANTHROPIC_API_KEY 있으면 AI 요약 / 없으면 자동 요약 문장)
 // 백엔드가 항상 이 3개 라벨로 줄을 시작한다(analyzer.overview_summary / ai_keywords.OVERVIEW_INSTRUCTIONS).
 // 라벨을 색 박스(뱃지)로 감싸 "잘하는 것/문제/할 일"이 한눈에 구분되게 한다.
@@ -273,9 +273,10 @@ function renderOverview(o, selected) {
   });
 
   if (hint) {
-    hint.textContent = (Array.isArray(selected) && selected.length === 1)
-      ? `'${selected[0]}' 강좌 기준 요약입니다.`
-      : "전체 데이터 기준 요약입니다. 강좌를 1개만 선택하면 그 강좌 기준으로 바뀝니다.";
+    const n = Array.isArray(selected) ? selected.length : 0;
+    hint.textContent = n === 1 ? `'${selected[0]}' 강좌 기준 요약입니다.`
+      : n > 1 ? `선택한 강좌 ${n}개 기준 요약입니다.`
+      : "전체 데이터 기준 요약입니다. 강좌를 선택하면 선택한 강좌 기준으로 바뀝니다.";
   }
 }
 
