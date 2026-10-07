@@ -119,20 +119,25 @@ def _recompute_locked(survey):
 def _overview_from_full(full):
     """analyzer.analyze() 결과 하나(전체든 강좌 1개든)를 종합 분석 요약으로 변환.
     Claude API 있으면 AI 요약, 없으면 규칙기반 자동 요약."""
+    # course_ranking 은 화면 순위표용이라 항상 전체 강좌 기준 → 강좌를 골랐으면 그 강좌들만 남긴다
+    # (안 그러면 선택하지 않은 강좌가 요약에 등장함).
+    selected = set(full["selected_courses"])
+    ranking = [c for c in full["course_ranking"] if not selected or c["course"] in selected]
+    # 키를 한국어로 둬야 AI 가 요약 문장에 영어 변수명(negative_keywords 등)을 그대로 쓰지 않는다.
     stats = {
-        "kpi": full["kpi"],
-        "categories": full["categories"],
-        "items": [{"name": i["name"], "score": i["score"]} for i in full["items"]],
-        "course_ranking": full["course_ranking"][:10],
+        "핵심지표": full["kpi"],
+        "카테고리별 점수": full["categories"],
+        "항목별 점수": [{"항목": i["name"], "점수": i["score"]} for i in full["items"]],
+        "강좌별 점수": ranking[:10],
         # 주관식에서 실제로 언급된 단어를 근거로 써야 "당연한 소리"가 아니라 구체적 제안이 나온다.
-        "positive_keywords": [k["word"] for k in full["keywords"]["positive"][:8]],
-        "negative_keywords": [k["word"] for k in full["keywords"]["negative"][:8]],
+        "긍정 키워드": [k["word"] for k in full["keywords"]["positive"][:8]],
+        "부정 키워드": [k["word"] for k in full["keywords"]["negative"][:8]],
     }
     ai_result = ai_keywords.analyze_overview(stats)
     if ai_result and ai_result.get("summary"):
         return {"summary": ai_result["summary"], "engine": "ai"}
     summary = analyzer.overview_summary(
-        full["kpi"], full["categories"], full["items"], full["course_ranking"], full["keywords"]
+        full["kpi"], full["categories"], full["items"], ranking, full["keywords"]
     )
     return {"summary": summary, "engine": "rule"} if summary else None
 
